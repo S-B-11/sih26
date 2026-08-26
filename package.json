@@ -1,0 +1,20 @@
+{
+  "name": "orca-monorepo",
+  "version": "1.0.0",
+  "description": "ORCA — Marine EcoSystem Reasoning with Collaborative Agents (ISRO SIH26176)",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend":  "cd backend && npm run dev",
+    "dev":          "start \"ORCA Frontend\" cmd /k \"cd frontend && npm run dev\" && start \"ORCA Backend\" cmd /k \"cd backend && npm run dev\"",
+    "install:all":  "npm install --prefix frontend && npm install --prefix backend",
+    "seed:db":      "cd backend && npm run seed",
+    "build":        "cd frontend && npm run build",
+    "push":         "node scripts/git-push.js"
+  }
+}
