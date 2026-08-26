@@ -3,17 +3,17 @@ import { AlertTriangle, ShieldAlert, Shield, CheckCircle2, ExternalLink, MapPin 
 import { useNavigate } from "react-router-dom";
 import { useOrca } from "../context/OrcaContext.jsx";
 
-const LEVEL_CONFIG = {
-  high:   { color: "var(--danger)",  bg: "var(--danger-bg)",  icon: AlertTriangle, label: "HIGH ALERT" },
-  medium: { color: "var(--warning)", bg: "var(--warning-bg)", icon: ShieldAlert,   label: "ADVISORY" },
-  low:    { color: "#4ade80",        bg: "rgba(74,222,128,0.10)", icon: Shield,    label: "NORMAL" },
-};
-
 export default function Alerts() {
-  const { activeRiskAlerts } = useOrca();
+  const { activeRiskAlerts, t } = useOrca();
   const navigate = useNavigate();
 
   const displayAlerts = activeRiskAlerts.length > 0 ? activeRiskAlerts : [];
+
+  const LEVEL_CONFIG = {
+    high:   { color: "var(--danger)",  bg: "var(--danger-bg)",  icon: AlertTriangle, label: t("highAlertTag") },
+    medium: { color: "var(--warning)", bg: "var(--warning-bg)", icon: ShieldAlert,   label: t("advisoryTag") },
+    low:    { color: "#4ade80",        bg: "rgba(74,222,128,0.10)", icon: Shield,    label: t("normalTag") },
+  };
 
   return (
     <div style={{
@@ -27,11 +27,11 @@ export default function Alerts() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
           <AlertTriangle size={18} color="var(--danger)" />
           <h1 style={{ fontSize: 18, fontWeight: 600, color: "var(--text)", margin: 0 }}>
-            Maritime Alerts & Geofencing
+            {t("alertsTitle")}
           </h1>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-3)", margin: 0 }}>
-          Live risk assessments, weather hazard bulletins, and geospatial EEZ/MPA geofence compliance.
+          {t("alertsSubtitle")}
         </p>
       </div>
 
@@ -57,10 +57,10 @@ export default function Alerts() {
           </div>
           <div style={{ textAlign: "center" }}>
             <p style={{ fontSize: 14, fontWeight: 500, color: "#4ade80", marginBottom: 4 }}>
-              All clear
+              {t("allClearTitle")}
             </p>
             <p style={{ fontSize: 12, color: "var(--text-3)", maxWidth: 280, lineHeight: 1.6 }}>
-              No active maritime alerts or boundary warnings for your sector.
+              {t("allClearDesc")}
             </p>
           </div>
 
@@ -81,7 +81,7 @@ export default function Alerts() {
               fontFamily: "inherit",
             }}
           >
-            Run sea safety query
+            {t("runSafetyQuery")}
             <ExternalLink size={12} />
           </button>
         </div>
@@ -90,7 +90,7 @@ export default function Alerts() {
           {displayAlerts.map((alert, idx) => {
             const isGeofence = alert.type === "geofence";
             const cfg = isGeofence
-              ? { color: "#38bdf8", bg: "rgba(56,189,248,0.12)", icon: MapPin, label: "GEOFENCE COMPLIANCE" }
+              ? { color: "#38bdf8", bg: "rgba(56,189,248,0.12)", icon: MapPin, label: t("geofenceTag") }
               : (LEVEL_CONFIG[alert.level] || LEVEL_CONFIG.low);
             const Icon = cfg.icon;
 

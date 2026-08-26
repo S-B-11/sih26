@@ -1,12 +1,21 @@
 import { useState, useCallback, useEffect } from "react";
 import { executeOrcaQuery } from "../data/mockBackend.js";
+import { getTranslation } from "../data/translations.js";
+
+const STORAGE_LANG_KEY = "orca_preferred_language";
 
 export function useOrcaQuery() {
+  const savedLang = typeof window !== "undefined" ? localStorage.getItem(STORAGE_LANG_KEY) : null;
+  const initialLang = savedLang || "en";
+
+  const [selectedLanguage, setSelectedLanguageState] = useState(initialLang);
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(!savedLang);
+
   const [messages, setMessages] = useState([
     {
       id: "welcome-msg",
       sender: "assistant",
-      text: "👋 Welcome to ORCA (Marine EcoSystem Reasoning with Collaborative Agents). Powered by ISRO Oceansat-3, INSAT-3DR, and INCOIS Ocean State Forecast.\n\nAsk any question about fishing zones (PFZ), maritime safety, cyclone alerts, or diagnostics in your native language.",
+      text: getTranslation(initialLang, "welcomeText"),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       risk_level: "low",
       agent_trace: [],
@@ -19,15 +28,44 @@ export function useOrcaQuery() {
   const [activeAgentTrace, setActiveAgentTrace] = useState([]);
   const [currentMapLayers, setCurrentMapLayers] = useState(null);
   const [activeRiskAlerts, setActiveRiskAlerts] = useState([]);
-  const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [selectedScenarioId, setSelectedScenarioId] = useState(null);
   const [conversationContext, setConversationContext] = useState(null);
+
+  // Translation helper bound to current language
+  const t = useCallback((key) => {
+    return getTranslation(selectedLanguage, key);
+  }, [selectedLanguage]);
+
+  // Set language with persistence & welcome message refresh
+  const setSelectedLanguage = useCallback((lang) => {
+    setSelectedLanguageState(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_LANG_KEY, lang);
+    }
+    // Refresh welcome message if it's the only message in session
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].id === "welcome-msg") {
+        return [
+          {
+            id: "welcome-msg",
+            sender: "assistant",
+            text: getTranslation(lang, "welcomeText"),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            risk_level: "low",
+            agent_trace: [],
+            evidence: [],
+            charts: []
+          }
+        ];
+      }
+      return prev;
+    });
+  }, []);
 
   // ── Proactive alert simulation on initial load (PS Requirement 2) ───────────
   useEffect(() => {
     const timer = setTimeout(() => {
       setActiveRiskAlerts((prev) => {
-        // Only set if user hasn't already triggered alerts
         if (prev.length === 0) {
           return [
             {
@@ -126,7 +164,7 @@ export function useOrcaQuery() {
       {
         id: "welcome-msg",
         sender: "assistant",
-        text: "👋 Session reset. Welcome to ORCA (Marine EcoSystem Reasoning with Collaborative Agents). Ask any ocean query or click a preset below.",
+        text: getTranslation(selectedLanguage, "welcomeText"),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         risk_level: "low",
         agent_trace: [],
@@ -139,7 +177,7 @@ export function useOrcaQuery() {
     setActiveRiskAlerts([]);
     setSelectedScenarioId(null);
     setConversationContext(null);
-  }, []);
+  }, [selectedLanguage]);
 
   return {
     messages,
@@ -149,8 +187,11 @@ export function useOrcaQuery() {
     activeRiskAlerts,
     selectedLanguage,
     setSelectedLanguage,
+    isLanguageModalOpen,
+    setIsLanguageModalOpen,
     selectedScenarioId,
     conversationContext,
+    t,
     runQuery,
     resetSession
   };

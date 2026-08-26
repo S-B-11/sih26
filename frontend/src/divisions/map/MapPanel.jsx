@@ -4,8 +4,9 @@ import {
   Marker, Popup, Polyline, useMap
 } from "react-leaflet";
 import L from "leaflet";
-import { Layers, Navigation, X, ShieldAlert, Anchor } from "lucide-react";
+import { Layers, Navigation, X, ShieldAlert } from "lucide-react";
 import { GEOFENCE_ZONES } from "../data/geofenceZones.js";
+import { useOrca } from "../context/OrcaContext.jsx";
 
 // Fix Leaflet icons in Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -57,16 +58,18 @@ function MapSizer({ chatOpen }) {
   return null;
 }
 
-const LAYER_DEFS = [
-  { key: "pfz",      label: "PFZ Zones",             color: "#22d3ee" },
-  { key: "hazard",   label: "Hazard & Weather",      color: "#f87171" },
-  { key: "route",    label: "Safe Routes",           color: "#22d3ee" },
-  { key: "buoy",     label: "Buoy Stations",         color: "#a78bfa" },
-  { key: "eez",      label: "EEZ Boundary (200NM)",  color: "#38bdf8" },
-  { key: "mpa",      label: "Marine Protected Areas", color: "#4ade80" },
-];
-
 export function MapPanel({ geojson, chatOpen }) {
+  const { t } = useOrca();
+
+  const LAYER_DEFS = [
+    { key: "pfz",      labelKey: "layerPfz",    color: "#22d3ee" },
+    { key: "hazard",   labelKey: "layerHazard", color: "#f87171" },
+    { key: "route",    labelKey: "layerRoute",  color: "#22d3ee" },
+    { key: "buoy",     labelKey: "layerBuoy",   color: "#a78bfa" },
+    { key: "eez",      labelKey: "layerEez",    color: "#38bdf8" },
+    { key: "mpa",      labelKey: "layerMpa",    color: "#4ade80" },
+  ];
+
   const [layerVis, setLayerVis] = useState({
     pfz: true,
     hazard: true,
@@ -104,7 +107,7 @@ export function MapPanel({ geojson, chatOpen }) {
               position: "absolute",
               bottom: "calc(100% + 8px)",
               left: 0,
-              width: 220,
+              width: 230,
               background: "var(--surface)",
               border: "1px solid var(--border-2)",
               borderRadius: 12,
@@ -114,14 +117,14 @@ export function MapPanel({ geojson, chatOpen }) {
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-2)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                Map Layers
+                {t("mapLayers")}
               </span>
               <button onClick={() => setLayersOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", display: "flex" }}>
                 <X size={13} />
               </button>
             </div>
 
-            {LAYER_DEFS.map(({ key, label, color }) => (
+            {LAYER_DEFS.map(({ key, labelKey, color }) => (
               <label key={key} style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "6px 0",
@@ -137,7 +140,7 @@ export function MapPanel({ geojson, chatOpen }) {
                 }}>
                   <span style={{ width: 7, height: 7, borderRadius: 2, background: layerVis[key] ? color : "var(--text-3)" }} />
                 </span>
-                <span style={{ flex: 1, fontSize: 11.5, color: layerVis[key] ? "var(--text)" : "var(--text-3)" }}>{label}</span>
+                <span style={{ flex: 1, fontSize: 11.5, color: layerVis[key] ? "var(--text)" : "var(--text-3)" }}>{t(labelKey)}</span>
                 <input
                   type="checkbox"
                   checked={layerVis[key]}
@@ -152,7 +155,7 @@ export function MapPanel({ geojson, chatOpen }) {
         {/* Layers button */}
         <button
           onClick={() => setLayersOpen(o => !o)}
-          title="Map Layers & Geofences"
+          title={t("mapLayers")}
           style={{
             width: 36, height: 36,
             borderRadius: 10,
@@ -229,19 +232,19 @@ export function MapPanel({ geojson, chatOpen }) {
                     <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 12 }}>{prop.name}</div>
                     {prop.type === "pfz" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11 }}>
-                        <Row label="SST" value={prop.sst} accent />
-                        <Row label="Chlorophyll-a" value={prop.chlorophyll} accent />
-                        <Row label="Species" value={prop.species} />
+                        <Row label={t("sst")} value={prop.sst} accent />
+                        <Row label={t("chlorophyll")} value={prop.chlorophyll} accent />
+                        <Row label={t("species")} value={prop.species} />
                         {prop.advisory && <div style={{ marginTop: 4, color: "var(--accent)", fontSize: 10 }}>{prop.advisory}</div>}
                       </div>
                     )}
                     {prop.type === "hazard" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11 }}>
                         <Row label="Risk" value={prop.riskLevel} danger />
-                        {prop.sst && <Row label="SST" value={prop.sst} />}
-                        {prop.chlorophyll && <Row label="Chlorophyll" value={prop.chlorophyll} />}
-                        {prop.waveHeight && <Row label="Wave Height" value={prop.waveHeight} />}
-                        {prop.windSpeed && <Row label="Wind Speed" value={prop.windSpeed} />}
+                        {prop.sst && <Row label={t("sst")} value={prop.sst} />}
+                        {prop.chlorophyll && <Row label={t("chlorophyll")} value={prop.chlorophyll} />}
+                        {prop.waveHeight && <Row label={t("waveHeight")} value={prop.waveHeight} />}
+                        {prop.windSpeed && <Row label={t("windSpeed")} value={prop.windSpeed} />}
                         {prop.warningText && <div style={{ marginTop: 4, color: "var(--danger)", fontSize: 10 }}>{prop.warningText}</div>}
                       </div>
                     )}
@@ -259,9 +262,9 @@ export function MapPanel({ geojson, chatOpen }) {
                   <div style={{ padding: "2px 0", minWidth: 180 }}>
                     <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 12, color: "#22d3ee" }}>{prop.name}</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11 }}>
-                      <Row label="SST" value={prop.sst} accent />
-                      <Row label="Wave Height" value={prop.waveHeight} />
-                      <Row label="Wind" value={prop.windSpeed} />
+                      <Row label={t("sst")} value={prop.sst} accent />
+                      <Row label={t("waveHeight")} value={prop.waveHeight} />
+                      <Row label={t("windSpeed")} value={prop.windSpeed} />
                     </div>
                   </div>
                 </Popup>
@@ -282,9 +285,9 @@ export function MapPanel({ geojson, chatOpen }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, marginBottom: 6, color: "#22d3ee" }}>
                       <Navigation size={12} /> {prop.name}
                     </div>
-                    <Row label="Distance" value={prop.distance} accent />
-                    <Row label="Est. Time" value={prop.estimatedTime} />
-                    <Row label="Safety" value={prop.safetyScore} accent />
+                    <Row label={t("distance")} value={prop.distance} accent />
+                    <Row label={t("estTime")} value={prop.estimatedTime} />
+                    <Row label={t("safetyScore")} value={prop.safetyScore} accent />
                   </div>
                 </Popup>
               </Polyline>

@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useOrca } from "../context/OrcaContext.jsx";
 import { AgentTracePanel } from "./AgentTracePanel.jsx";
 import { EvidencePanel } from "./EvidencePanel.jsx";
 import { ReasoningTrace } from "./ReasoningTrace.jsx";
@@ -10,6 +11,7 @@ import { Bot, User, BarChart2 } from "lucide-react";
 export function ChatPanel({ messages, isLoading, activeAgentTrace, onSendQuery, selectedLanguage }) {
   const chatEndRef = useRef(null);
   const navigate = useNavigate();
+  const { t } = useOrca();
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -72,7 +74,7 @@ export function ChatPanel({ messages, isLoading, activeAgentTrace, onSendQuery, 
                   justifyContent: isUser ? "flex-end" : "flex-start",
                 }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-2)" }}>
-                    {isUser ? "You" : "ORCA"}
+                    {isUser ? t("you") : t("assistant")}
                   </span>
                   <span style={{ fontSize: 10, color: "var(--text-3)", fontFamily: "monospace" }}>
                     {msg.timestamp}
@@ -118,7 +120,7 @@ export function ChatPanel({ messages, isLoading, activeAgentTrace, onSendQuery, 
                     onMouseLeave={e => e.currentTarget.style.background = "var(--accent-dim)"}
                   >
                     <BarChart2 size={12} />
-                    View {msg.charts.length} chart{msg.charts.length > 1 ? "s" : ""} in Analytics →
+                    {t("viewChartsBtn")} ({msg.charts.length}) →
                   </button>
                 )}
 

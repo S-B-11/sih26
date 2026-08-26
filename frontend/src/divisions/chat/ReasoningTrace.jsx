@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp, Bot, CheckCircle2, ArrowRight } from "lucide-react";
+import { useOrca } from "../context/OrcaContext.jsx";
+import { ChevronDown, ChevronUp, Bot, CheckCircle2 } from "lucide-react";
 
 export function ReasoningTrace({ agentTrace }) {
   const [isOpen, setIsOpen] = useState(false);
+  const { t } = useOrca();
 
   if (!agentTrace || agentTrace.length === 0) return null;
 
@@ -37,7 +39,7 @@ export function ReasoningTrace({ agentTrace }) {
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Bot size={13} color="var(--accent)" />
           <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text)" }}>
-            Agent Reasoning Trace
+            {t("agentReasoningTrace")}
           </span>
           <span style={{
             fontSize: 10,
@@ -47,11 +49,11 @@ export function ReasoningTrace({ agentTrace }) {
             color: "var(--accent)",
             fontWeight: 600,
           }}>
-            {agentTrace.length} agents collaborated
+            {agentTrace.length} {t("agentsCollaborated")}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-3)" }}>
-          <span style={{ fontSize: 10 }}>{isOpen ? "Hide" : "Show"}</span>
+          <span style={{ fontSize: 10 }}>{isOpen ? t("hide") : t("show")}</span>
           {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </div>
       </button>

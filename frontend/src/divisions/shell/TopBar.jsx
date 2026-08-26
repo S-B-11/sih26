@@ -1,7 +1,13 @@
 import React from "react";
-import { Waves } from "lucide-react";
+import { Waves, Globe } from "lucide-react";
+import { useOrca } from "../context/OrcaContext.jsx";
+import { LANGUAGES } from "../data/presetQueries.js";
 
 export default function TopBar({ onOpenSettings }) {
+  const { t, selectedLanguage, setIsLanguageModalOpen } = useOrca();
+
+  const currentLangObj = LANGUAGES.find(l => l.code === selectedLanguage) || LANGUAGES[0];
+
   return (
     <header style={{
       height: "var(--topbar-h)",
@@ -33,26 +39,58 @@ export default function TopBar({ onOpenSettings }) {
             background: "linear-gradient(90deg, #22d3ee 0%, #67e8f9 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
-          }}>ORCA</span>
+          }}>{t("appName")}</span>
           <span style={{
             marginLeft: 8,
             fontSize: 11,
             color: "var(--text-3)",
             fontWeight: 400,
             letterSpacing: "0.02em",
-          }}>Marine Intelligence</span>
+          }}>{t("appSubtitle")}</span>
         </div>
       </div>
 
-      {/* Right: ISRO badge only */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* Right: Language Switcher + ISRO badge */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Quick Language Switcher Button */}
+        <button
+          onClick={() => setIsLanguageModalOpen(true)}
+          title="Change Native Language"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 10px",
+            borderRadius: 8,
+            background: "var(--surface-2)",
+            border: "1px solid var(--border-2)",
+            color: "var(--text)",
+            fontSize: 11.5,
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+            fontFamily: "inherit",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = "var(--accent-mid)";
+            e.currentTarget.style.color = "var(--accent)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = "var(--border-2)";
+            e.currentTarget.style.color = "var(--text)";
+          }}
+        >
+          <Globe size={13} color="var(--accent)" />
+          <span>{currentLangObj.flag} {currentLangObj.native}</span>
+        </button>
+
         <span style={{
           fontSize: 10,
           fontWeight: 600,
           color: "var(--text-3)",
           letterSpacing: "0.06em",
           textTransform: "uppercase",
-        }}>ISRO · SIH26176</span>
+        }}>{t("isroBadge")}</span>
       </div>
     </header>
   );

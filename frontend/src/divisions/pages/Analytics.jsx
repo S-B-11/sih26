@@ -4,7 +4,7 @@ import { useOrca } from "../context/OrcaContext.jsx";
 import { ChartCard } from "../chat/ChartCard.jsx";
 
 export default function Analytics() {
-  const { messages } = useOrca();
+  const { messages, t } = useOrca();
 
   // Collect all charts from all assistant messages
   const allCharts = messages
@@ -23,11 +23,11 @@ export default function Analytics() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
           <BarChart2 size={18} color="var(--accent)" />
           <h1 style={{ fontSize: 18, fontWeight: 600, color: "var(--text)", margin: 0 }}>
-            Ocean Analytics
+            {t("analyticsTitle")}
           </h1>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-3)", margin: 0 }}>
-          Telemetry charts and trend data from your ORCA queries.
+          {t("analyticsSubtitle")}
         </p>
       </div>
 
@@ -53,10 +53,10 @@ export default function Analytics() {
           </div>
           <div style={{ textAlign: "center" }}>
             <p style={{ fontSize: 14, fontWeight: 500, color: "var(--text-2)", marginBottom: 4 }}>
-              No charts yet
+              {t("noChartsTitle")}
             </p>
             <p style={{ fontSize: 12, color: "var(--text-3)", maxWidth: 280, lineHeight: 1.6 }}>
-              Ask ORCA about fishing zones, wave conditions, or navigation routes to see telemetry charts here.
+              {t("noChartsDesc")}
             </p>
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function Analytics() {
           fontSize: 11,
         }}>
           <Info size={12} />
-          Data sourced from ISRO MOSDAC · INCOIS Ocean State Forecast · NIOT Buoy Network
+          {t("dataSourceNote")}
         </div>
       )}
     </div>

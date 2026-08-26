@@ -1,7 +1,10 @@
 import React from "react";
 import { PRESET_QUERIES } from "../data/presetQueries.js";
+import { useOrca } from "../context/OrcaContext.jsx";
 
 export function PresetChips({ onSelectPreset, selectedLanguage }) {
+  const { t } = useOrca();
+
   return (
     <div style={{ padding: "4px 0 8px" }}>
       <p style={{
@@ -11,7 +14,9 @@ export function PresetChips({ onSelectPreset, selectedLanguage }) {
         letterSpacing: "0.08em",
         textTransform: "uppercase",
         marginBottom: 10,
-      }}>Try an example</p>
+      }}>
+        {t("tryExample")}
+      </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {PRESET_QUERIES.map((preset) => {

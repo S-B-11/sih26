@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { useOrca } from "../context/OrcaContext.jsx";
 import { useVoiceInput } from "../hooks/useVoiceInput.js";
 import { detectLanguage } from "../utils/detectLanguage.js";
 import { Send, Mic, MicOff, Globe } from "lucide-react";
 
 export function InputArea({ onSendQuery, isLoading, selectedLanguage }) {
   const [inputText, setInputText] = useState("");
+  const { t } = useOrca();
 
   const { isListening, audioLevel, transcript, startListening, stopListening } = useVoiceInput({
     language: selectedLanguage,
@@ -25,16 +27,6 @@ export function InputArea({ onSendQuery, isLoading, selectedLanguage }) {
 
   const toggleMic = () => isListening ? stopListening() : startListening();
 
-  const PLACEHOLDERS = {
-    hi: "समुद्री सवाल पूछें...",
-    ta: "கடல் கேள்வி கேளுங்கள்...",
-    te: "సముద్ర ప్రశ్న అడగండి...",
-    ml: "കടൽ ചോദ്യം ചോദിക്കൂ...",
-    gu: "દરિયાઈ સવાલ પૂછો...",
-    bn: "সমুদ্র বিষয়ক প্রশ্ন করুন...",
-    en: "Ask about fishing zones, weather, diagnostics, routes...",
-  };
-
   return (
     <div style={{
       padding: "12px 14px",
@@ -53,8 +45,8 @@ export function InputArea({ onSendQuery, isLoading, selectedLanguage }) {
           color: "var(--accent)",
         }}>
           <Globe size={11} />
-          <span>Auto-detected script: <strong>{detectedLang.name}</strong></span>
-          <span style={{ fontSize: 10, color: "var(--text-3)" }}>(will respond in {detectedLang.name})</span>
+          <span>{t("autoDetected")}: <strong>{detectedLang.name}</strong></span>
+          <span style={{ fontSize: 10, color: "var(--text-3)" }}>({t("willRespondIn")} {detectedLang.name})</span>
         </div>
       )}
 
@@ -72,7 +64,7 @@ export function InputArea({ onSendQuery, isLoading, selectedLanguage }) {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Mic size={13} color="var(--accent)" className="animate-pulse" />
-            <span style={{ fontSize: 12, color: "var(--accent)", fontWeight: 500 }}>Listening...</span>
+            <span style={{ fontSize: 12, color: "var(--accent)", fontWeight: 500 }}>{t("listening")}</span>
             {transcript && (
               <span style={{ fontSize: 11, color: "var(--text-2)", fontStyle: "italic", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {transcript}
@@ -93,7 +85,7 @@ export function InputArea({ onSendQuery, isLoading, selectedLanguage }) {
           type="text"
           value={inputText}
           onChange={e => setInputText(e.target.value)}
-          placeholder={PLACEHOLDERS[selectedLanguage] || PLACEHOLDERS.en}
+          placeholder={t("inputPlaceholder")}
           disabled={isLoading}
           style={{
             flex: 1,
