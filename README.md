@@ -15,12 +15,12 @@
 orca-frontend/
 ├── frontend/                     ← React 19 + Vite SPA (Tailwind CSS, Leaflet GIS, Recharts)
 │   ├── src/divisions/
-│   │   ├── shell/                — Layout, TopBar, NavRail, SettingsDrawer, RiskAlertBanner
+│   │   ├── shell/                — Layout, TopBar, NavRail, SettingsDrawer, LanguageModal, RiskAlertBanner
 │   │   ├── chat/                 — ChatPanel, InputArea, ReasoningTrace, AgentTracePanel, EvidencePanel
 │   │   ├── map/                  — MapPanel (Leaflet GIS, Geofence overlays, Buoys, PFZ)
 │   │   ├── pages/                — Home (`/`), Analytics (`/analytics`), Alerts (`/alerts`)
 │   │   ├── context/              — OrcaContext (State management across routes)
-│   │   ├── data/                 — mockBackend.js, geofenceZones.js, presetQueries.js
+│   │   ├── data/                 — mockBackend.js, geofenceZones.js, presetQueries.js, translations.js
 │   │   ├── utils/                — detectLanguage.js (Indic Unicode detection)
 │   │   └── hooks/                — useOrcaQuery.js, useVoiceInput.js
 │   └── package.json
@@ -43,7 +43,8 @@ orca-frontend/
 │   └── config/                   — db.config.js
 │
 ├── scripts/
-│   └── git-push.js               — One-click automated Git commit & push tool
+│   ├── git-push.js               — One-click automated Git commit & push tool
+│   └── git-pull.js               — One-click automated Git pull & sync tool
 │
 ├── package.json                  ← Monorepo workspace configuration
 └── README.md                     ← Project documentation
@@ -67,16 +68,16 @@ npm run dev:frontend
 npm run dev:backend
 ```
 
-### 3. Seed Database (Optional)
-```bash
-npm run seed:db
-```
+### 3. Sync Changes with GitHub
 
-### 4. Push Updates to GitHub
 ```bash
+# Push all local changes to GitHub
 npm run push
 # or with custom message:
 npm run push -- "updated multi-agent pipeline"
+
+# Pull latest changes from GitHub to your PC
+npm run pull
 ```
 
 ---
