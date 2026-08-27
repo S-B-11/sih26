@@ -1,4 +1,4 @@
-import Alert from "../../database/schemas/alert.schema.js";
+import Alert from "../../../database/schemas/alert.schema.js";
 
 export class AlertService {
   static async getActive() {

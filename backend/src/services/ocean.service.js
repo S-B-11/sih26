@@ -1,5 +1,5 @@
-import PfzZone from "../../database/schemas/pfzZone.schema.js";
-import Buoy from "../../database/schemas/buoy.schema.js";
+import PfzZone from "../../../database/schemas/pfzZone.schema.js";
+import Buoy from "../../../database/schemas/buoy.schema.js";
 
 /**
  * OceanDataService

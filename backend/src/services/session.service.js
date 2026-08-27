@@ -1,4 +1,4 @@
-import Session from "../../database/schemas/session.schema.js";
+import Session from "../../../database/schemas/session.schema.js";
 
 export class SessionService {
   static async getByUser(userId) {
