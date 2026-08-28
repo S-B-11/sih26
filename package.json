@@ -5,15 +5,13 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "frontend",
-    "backend"
+    "frontend"
   ],
   "scripts": {
     "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend":  "cd backend && npm run dev",
-    "dev":          "start \"ORCA Frontend\" cmd /k \"cd frontend && npm run dev\" && start \"ORCA Backend\" cmd /k \"cd backend && npm run dev\"",
-    "install:all":  "npm install --prefix frontend && npm install --prefix backend",
-    "seed:db":      "cd backend && npm run seed",
+    "dev:backend":  "cd backend && uvicorn main:app --reload --port 8000",
+    "dev":          "start \"ORCA Frontend\" cmd /k \"cd frontend && npm run dev\" && start \"ORCA Backend\" cmd /k \"cd backend && uvicorn main:app --reload --port 8000\"",
+    "install:all":  "npm install --prefix frontend && pip install -r backend/requirements.txt",
     "build":        "cd frontend && npm run build",
     "push":         "node scripts/git-push.js"
   }

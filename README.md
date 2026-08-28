@@ -12,32 +12,28 @@
 ## 🏛️ Project Architecture
 
 ```
-orca-frontend/
-├── frontend/                     ← React 19 + Vite SPA (Tailwind CSS, Leaflet GIS, Recharts)
-│   ├── src/divisions/
-│   │   ├── shell/                — Layout, TopBar, NavRail, SettingsDrawer, RiskAlertBanner
-│   │   ├── chat/                 — ChatPanel, InputArea, ReasoningTrace, AgentTracePanel, EvidencePanel
-│   │   ├── map/                  — MapPanel (Leaflet GIS, Geofence overlays, Buoys, PFZ)
-│   │   ├── pages/                — Home (`/`), Analytics (`/analytics`), Alerts (`/alerts`)
-│   │   ├── context/              — OrcaContext (State management across routes)
-│   │   ├── data/                 — mockBackend.js, geofenceZones.js, presetQueries.js
-│   │   ├── utils/                — detectLanguage.js (Indic Unicode detection)
-│   │   └── hooks/                — useOrcaQuery.js, useVoiceInput.js
+sih26-main/
+├── frontend/                     ← Next.js 16 + React 19 (Tailwind CSS v4, lucide-react)
+│   ├── src/app/
+│   │   ├── page.tsx               — Main dashboard (map, chat co-pilot, agent pipeline, analytics)
+│   │   ├── layout.tsx             — Root layout & fonts
+│   │   └── api/chat/route.ts      — Chat API route
 │   └── package.json
 │
-├── backend/                      ← Node.js + Express REST API
-│   ├── src/
-│   │   ├── app.js                — Express app configuration & middleware
-│   │   ├── server.js             — API entry point (:5000)
-│   │   ├── routes/               — query, ocean, alert, session routes
-│   │   ├── controllers/          — Route handlers
-│   │   ├── services/             — OrcaQueryService, OceanDataService, AlertService, SessionService
-│   │   ├── middleware/           — errorHandler, rateLimiter
-│   │   ├── config/               — MongoDB Mongoose connection
-│   │   └── utils/                — agentPipeline.js, scenarios.js
-│   └── package.json
+├── backend/                      ← Python 3.11+ / FastAPI multi-agent API
+│   ├── main.py                    — FastAPI app & routes (:8000)
+│   ├── agents/
+│   │   ├── planner.py             — Query planner/orchestrator
+│   │   ├── location_agent.py      — Location resolution
+│   │   ├── marine_agent.py        — SST / marine conditions
+│   │   ├── weather_agent.py       — Weather & wind
+│   │   ├── geo_agent.py           — Geospatial / geofencing
+│   │   ├── risk_agent.py          — Composite risk scoring
+│   │   └── synthesis_agent.py     — Final response synthesis
+│   ├── marine_data/               — Cached NetCDF ocean/wind datasets
+│   └── requirements.txt
 │
-├── database/                     ← MongoDB Layer
+├── database/                     ← (legacy MongoDB layer, not used by the Python backend — pending cleanup)
 │   ├── schemas/                  — PfzZone, Buoy, Alert, Session Mongoose models
 │   ├── seeds/                    — seed.js (Pre-populated oceanographic data)
 │   └── config/                   — db.config.js
@@ -45,7 +41,7 @@ orca-frontend/
 ├── scripts/
 │   └── git-push.js               — One-click automated Git commit & push tool
 │
-├── package.json                  ← Monorepo workspace configuration
+├── package.json                  ← Workspace config (frontend) + dev scripts
 └── README.md                     ← Project documentation
 ```
 
@@ -57,22 +53,18 @@ orca-frontend/
 ```bash
 npm run install:all
 ```
+This installs the frontend's npm packages and the backend's Python packages (`pip install -r backend/requirements.txt`) — use a virtualenv for the Python side.
 
 ### 2. Start Development Servers
 ```bash
-# Start Frontend (port 5173 / 3000)
+# Start Frontend (port 3000)
 npm run dev:frontend
 
-# Start Backend API (port 5000)
+# Start Backend API (port 8000)
 npm run dev:backend
 ```
 
-### 3. Seed Database (Optional)
-```bash
-npm run seed:db
-```
-
-### 4. Push Updates to GitHub
+### 3. Push Updates to GitHub
 ```bash
 npm run push
 # or with custom message:
@@ -97,14 +89,14 @@ npm run push -- "updated multi-agent pipeline"
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/health` | Service health status |
-| `POST` | `/api/query` | Run Multi-Agent reasoning pipeline |
-| `GET` | `/api/query/agents` | Get agent step definitions |
-| `GET` | `/api/ocean/pfz` | List Potential Fishing Zones |
-| `GET` | `/api/ocean/buoys` | Ocean buoy telemetry streams |
-| `GET` | `/api/ocean/geojson` | Complete GIS feature collection |
-| `GET` | `/api/alerts` | Active maritime risk bulletins |
-| `GET` | `/api/sessions/:userId`| User conversation history |
+| `GET` | `/` | Service status |
+| `GET` | `/api/status` | Per-agent readiness status |
+| `POST` | `/api/query` | Run the query planner only |
+| `GET` | `/api/marine` | Marine agent (SST/marine conditions) |
+| `GET` | `/api/weather` | Weather agent (wind/forecast) |
+| `GET` | `/api/geo` | Geospatial / geofencing agent |
+| `GET` | `/api/risk` | Composite risk assessment |
+| `POST` | `/api/orca` | Full multi-agent pipeline: planner → location → marine → weather → geo → risk → synthesis |
 
 ---
 

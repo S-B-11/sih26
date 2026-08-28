@@ -1,0 +1,626 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), "Segoe UI", sans-serif;
+  --font-mono: var(--font-mono), "JetBrains Mono", monospace;
+}
+
+:root {
+  --background: #07151b;
+  --foreground: #f8fafc;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  letter-spacing: 0;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.app-shell {
+  background:
+    linear-gradient(135deg, rgba(9, 35, 40, 0.96), rgba(7, 13, 23, 0.98) 48%, rgba(22, 25, 31, 0.98)),
+    var(--background);
+}
+
+.theme-light .app-shell {
+  background:
+    radial-gradient(circle at 8% 6%, rgba(42, 173, 183, 0.2), transparent 23rem),
+    radial-gradient(circle at 92% 4%, rgba(249, 173, 94, 0.2), transparent 25rem),
+    radial-gradient(circle at 42% 78%, rgba(147, 197, 253, 0.18), transparent 28rem),
+    linear-gradient(135deg, #e7f7f5 0%, #f7fbf8 48%, #fff7ed 100%);
+  color: #153a43;
+}
+
+.theme-light .app-shell::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  width: 34rem;
+  height: 34rem;
+  top: 12%;
+  right: -14rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(65, 185, 197, 0.15), transparent 67%);
+  filter: blur(7px);
+  animation: ambient-drift 15s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.theme-light .app-shell .text-white,
+.theme-light .app-shell .text-slate-100,
+.theme-light .app-shell .text-slate-200 {
+  color: #12363e;
+}
+
+.theme-light .app-shell .text-slate-300,
+.theme-light .app-shell .text-slate-400,
+.theme-light .app-shell .text-slate-500 {
+  color: #547178;
+}
+
+.theme-light .app-shell .bg-slate-900,
+.theme-light .app-shell .bg-slate-900\/60,
+.theme-light .app-shell .bg-slate-900\/80,
+.theme-light .app-shell .bg-slate-950\/90 {
+  background-color: rgba(242, 250, 249, 0.9);
+}
+
+.theme-light .app-shell .bg-\[\#09111e\]\/98,
+.theme-light .app-shell .bg-\[\#0b1322\],
+.theme-light .app-shell .bg-\[\#070e1a\],
+.theme-light .app-shell .bg-\[\#0c1524\],
+.theme-light .app-shell .bg-slate-950,
+.theme-light .app-shell .bg-slate-950\/65,
+.theme-light .app-shell .bg-slate-900\/70,
+.theme-light .app-shell .bg-slate-900\/90,
+.theme-light .app-shell .bg-slate-900\/95 {
+  background-color: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 12px 32px rgba(20, 76, 86, 0.07);
+}
+
+.theme-light .app-shell [class*="border-slate-8"],
+.theme-light .app-shell [class*="border-slate-7"] {
+  border-color: rgba(15, 70, 80, 0.13);
+}
+
+.theme-light .app-shell .rounded-2xl.bg-\[\#0b1322\],
+.theme-light .app-shell .rounded-2xl.bg-\[\#0c1524\] {
+  background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(236, 249, 247, 0.78));
+}
+
+/* Keep white text legible on chips/badges that keep a saturated, non-slate
+   background in both themes (logo mark, map markers, filled buttons). The
+   generic .text-white -> dark-teal remap above is meant for text sitting on
+   the lightened slate surfaces, not on these solid accent colours. */
+.theme-light .app-shell .bg-gradient-to-br.text-white,
+.theme-light .app-shell .bg-sky-500.text-white,
+.theme-light .app-shell .bg-sky-600.text-white,
+.theme-light .app-shell .bg-emerald-600.text-white,
+.theme-light .app-shell .bg-amber-600.text-white,
+.theme-light .app-shell .settings-icon-grid.text-white,
+.theme-light .app-shell .settings-hero .text-white {
+  color: #ffffff;
+}
+
+/* Accent colours (sky/emerald/amber/teal/violet/rose/cyan) were tuned for a
+   dark canvas; on the light surfaces they read washed-out and fail contrast.
+   Deepen them for the light theme while keeping each hue recognisable. */
+.theme-light .app-shell .text-sky-400 { color: #0c7ea3; }
+.theme-light .app-shell .text-sky-300 { color: #0369a1; }
+.theme-light .app-shell .text-emerald-400 { color: #0a8f5b; }
+.theme-light .app-shell .text-emerald-300 { color: #047a4c; }
+.theme-light .app-shell .text-amber-400 { color: #b3670a; }
+.theme-light .app-shell .text-amber-300 { color: #9a5a0a; }
+.theme-light .app-shell .text-teal-400 { color: #0f766e; }
+.theme-light .app-shell .text-violet-400 { color: #7c3aed; }
+.theme-light .app-shell .text-rose-400 { color: #d92662; }
+.theme-light .app-shell .text-rose-300 { color: #be123c; }
+.theme-light .app-shell .text-cyan-300 { color: #0e7490; }
+.theme-light .app-shell .text-cyan-400 { color: #0e7490; }
+.theme-light .app-shell .text-blue-400 { color: #1d4ed8; }
+/* Only the map marker icon uses cyan-100 outside the always-dark settings-hero
+   surface, so scope the darken there rather than remapping the class globally. */
+.theme-light .app-shell .border-cyan-300\/40 .text-cyan-100 { color: #0e7490; }
+
+.theme-light .marine-grid {
+  background-image:
+    linear-gradient(to right, rgba(20, 113, 126, 0.075) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(20, 113, 126, 0.075) 1px, transparent 1px);
+}
+
+.theme-light .ocean-atmosphere { opacity: 1; }
+
+.theme-light .ocean-atmosphere::before,
+.theme-light .ocean-atmosphere::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.theme-light .ocean-atmosphere::before {
+  width: 20rem;
+  height: 20rem;
+  left: 16%;
+  bottom: -12rem;
+  border: 1px solid rgba(14, 116, 144, 0.14);
+  box-shadow: 0 0 0 3rem rgba(14, 116, 144, 0.025), 0 0 0 6rem rgba(14, 116, 144, 0.018);
+  animation: current-ripple 12s ease-in-out infinite;
+}
+
+.theme-light .ocean-atmosphere::after {
+  width: 9rem;
+  height: 9rem;
+  right: 21%;
+  top: 27%;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.12), transparent 68%);
+  animation: ambient-drift 10s -4s ease-in-out infinite reverse;
+}
+
+.settings-panel {
+  background: rgba(9, 20, 29, 0.98);
+}
+
+.settings-modal {
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(103, 232, 249, 0.04);
+  animation: settings-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.alert-drawer { animation: drawer-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.settings-hero {
+  background: linear-gradient(120deg, #073d4b, #075f73 55%, #2563a6);
+}
+
+.settings-icon-grid {
+  background: linear-gradient(135deg, #38d6e7, #2670d8);
+  box-shadow: 0 10px 24px rgba(8, 145, 178, 0.32);
+}
+
+.settings-orbit {
+  position: absolute;
+  border: 1px solid rgba(207, 250, 254, 0.16);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.settings-orbit-one { width: 190px; height: 190px; right: -58px; top: -86px; animation: orbit-float 7s ease-in-out infinite; }
+.settings-orbit-two { width: 115px; height: 115px; right: 105px; bottom: -72px; animation: orbit-float 7s 900ms ease-in-out infinite reverse; }
+
+.settings-section {
+  background: linear-gradient(145deg, rgba(15, 32, 44, 0.76), rgba(10, 23, 34, 0.9));
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+.settings-toggle-row {
+  background: rgba(2, 15, 25, 0.28);
+  border-color: rgba(148, 163, 184, 0.14);
+}
+
+.settings-toggle-row:hover { border-color: rgba(34, 211, 238, 0.38); }
+
+.appearance-option { color: #94a3b8; border-color: rgba(148, 163, 184, 0.14); }
+.appearance-option:hover { border-color: rgba(34, 211, 238, 0.35); color: #e0f2fe; }
+.appearance-selected {
+  color: #cffafe;
+  background: linear-gradient(100deg, rgba(6, 182, 212, 0.18), rgba(37, 99, 235, 0.12));
+  border-color: rgba(34, 211, 238, 0.56);
+  box-shadow: inset 0 0 24px rgba(34, 211, 238, 0.06);
+}
+
+.settings-preview {
+  background: radial-gradient(circle at 85% 20%, rgba(34, 211, 238, 0.18), transparent 34%), #0a2330;
+  border: 1px solid rgba(34, 211, 238, 0.17);
+}
+
+@keyframes settings-enter { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes orbit-float { 50% { transform: translate3d(-8px, 9px, 0) scale(1.05); } }
+@keyframes drawer-enter { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
+
+.theme-light .settings-panel {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(15, 70, 80, 0.18);
+}
+
+.theme-light .settings-section {
+  background: linear-gradient(145deg, #ffffff, #edf8f6);
+  border-color: rgba(15, 70, 80, 0.13);
+}
+
+.theme-light .settings-section .text-white { color: #12363e; }
+.theme-light .settings-section .text-slate-300,
+.theme-light .settings-section .text-slate-400 { color: #547178; }
+.theme-light .settings-toggle-row { background: #f3faf8; border-color: rgba(15, 70, 80, 0.12); }
+.theme-light .appearance-option { color: #527178; }
+.theme-light .appearance-option:hover { color: #12363e; }
+.theme-light .appearance-option .bg-slate-900\/70 { background-color: #e5f4f1; }
+.theme-light .appearance-selected { color: #075f73; background: #ddf5f1; }
+.theme-light .settings-preview { background: radial-gradient(circle at 85% 20%, rgba(34, 211, 238, 0.18), transparent 34%), #e8f7f4; }
+.theme-light .settings-preview .text-white { color: #12363e; }
+
+.settings-input {
+  background: rgba(15, 30, 40, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.theme-light .settings-input {
+  background: #f1f8f7;
+  color: #18343b;
+  border-color: rgba(15, 70, 80, 0.18);
+}
+
+.sidebar-brand {
+  background: linear-gradient(180deg, rgba(14, 116, 144, 0.18), transparent);
+}
+
+.header-bar {
+  position: relative;
+  background: linear-gradient(90deg, rgba(7, 21, 27, 0.98), rgba(11, 44, 51, 0.78), rgba(7, 21, 27, 0.96));
+  box-shadow: 0 1px 0 rgba(103, 232, 249, 0.08), 0 12px 32px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+
+/* Executive header 3D ocean backdrop: a subtled, clipped slice of the same
+   perspective wave-grid used on the radar/hero panels, sitting under the
+   header content so it reads as depth rather than a flat bar. */
+.header-3d {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  perspective: 420px;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.header-3d .header-3d-grid {
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  bottom: -180%;
+  height: 260%;
+  transform: rotateX(72deg);
+  transform-origin: center bottom;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.16) 1px, transparent 1px);
+  background-size: 34px 34px;
+  animation: header-drift 9s linear infinite;
+  mask-image: linear-gradient(to bottom, transparent, black 55%, black);
+}
+
+.header-3d::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 15% 0%, rgba(34, 211, 238, 0.16), transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(251, 191, 36, 0.08), transparent 50%);
+}
+
+@keyframes header-drift { to { background-position: 0 34px, 34px 0; } }
+
+.header-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.9), rgba(251, 191, 36, 0.5), transparent);
+  background-size: 200% 100%;
+  animation: header-scan 6s ease-in-out infinite;
+  z-index: 1;
+}
+
+@keyframes header-scan {
+  0%, 100% { background-position: 0% 0; opacity: 0.5; }
+  50% { background-position: 100% 0; opacity: 1; }
+}
+
+.theme-light .header-3d { opacity: 0.32; }
+.theme-light .header-3d .header-3d-grid {
+  background-image:
+    linear-gradient(rgba(7, 103, 129, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(7, 103, 129, 0.22) 1px, transparent 1px);
+}
+.theme-light .header-3d::after {
+  background: radial-gradient(ellipse at 15% 0%, rgba(34, 211, 238, 0.22), transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(251, 146, 60, 0.14), transparent 50%);
+}
+
+.nav-active {
+  background: linear-gradient(100deg, rgba(6, 182, 212, 0.2), rgba(14, 116, 144, 0.1));
+  box-shadow: inset 3px 0 0 #22d3ee, 0 8px 22px rgba(6, 182, 212, 0.08);
+}
+
+.three-d-ocean {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  perspective: 500px;
+  background:
+    radial-gradient(ellipse at 52% 25%, rgba(83, 223, 238, 0.22), transparent 42%),
+    radial-gradient(ellipse at 12% 80%, rgba(38, 111, 206, 0.26), transparent 38%),
+    linear-gradient(180deg, rgba(5, 49, 64, 0.52), rgba(3, 11, 18, 0.9));
+}
+
+.three-d-ocean::before,
+.three-d-ocean::after {
+  content: "";
+  position: absolute;
+  width: 150%;
+  height: 38%;
+  left: -25%;
+  border-radius: 50%;
+  border-top: 1px solid rgba(103, 232, 249, 0.26);
+  filter: drop-shadow(0 -10px 16px rgba(34, 211, 238, 0.12));
+  animation: wave-roll 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.three-d-ocean::before { bottom: -21%; }
+.three-d-ocean::after { bottom: -27%; opacity: 0.45; animation-delay: -4s; }
+
+.three-d-grid {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: -24%;
+  height: 76%;
+  transform: rotateX(62deg);
+  transform-origin: center bottom;
+  background-image: linear-gradient(rgba(34, 211, 238, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(34, 211, 238, 0.15) 1px, transparent 1px);
+  background-size: 42px 42px;
+  animation: ocean-drift 10s linear infinite, grid-breathe 5s ease-in-out infinite;
+  mask-image: linear-gradient(to bottom, transparent, black 30%, black);
+}
+
+.three-d-horizon {
+  position: absolute;
+  top: 40%;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.8), transparent);
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.6);
+  animation: horizon-pulse 4s ease-in-out infinite;
+}
+
+.three-d-star {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 18px #f59e0b;
+  animation: beacon-float 3s ease-in-out infinite;
+}
+
+.star-one { top: 28%; left: 26%; }
+.star-two { top: 34%; right: 24%; animation-delay: 800ms; }
+.star-three { top: 48%; left: 62%; animation-delay: 1400ms; }
+
+@keyframes ocean-drift { to { background-position: 0 42px, 42px 0; } }
+@keyframes horizon-pulse { 50% { opacity: 0.45; transform: scaleX(0.7); } }
+@keyframes beacon-float { 50% { transform: translateY(-10px) scale(1.35); opacity: 0.55; } }
+@keyframes wave-roll {
+  0%, 100% { transform: translate3d(-3%, 2%, 0) rotate(-2deg); }
+  50% { transform: translate3d(3%, -12%, 0) rotate(2deg); }
+}
+@keyframes grid-breathe { 50% { opacity: 0.66; transform: rotateX(62deg) translateY(-8px) scale(1.03); } }
+@keyframes ambient-drift { 50% { transform: translate3d(-22px, 18px, 0) scale(1.08); } }
+@keyframes current-ripple { 50% { transform: scale(1.15); opacity: 0.45; } }
+
+.theme-light .header-bar {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(220, 244, 241, 0.92) 52%, rgba(255, 242, 224, 0.94));
+  box-shadow: 0 1px 0 rgba(15, 70, 80, 0.13), 0 12px 30px rgba(15, 70, 80, 0.1);
+}
+
+.theme-light .header-title-gradient {
+  background-image: linear-gradient(90deg, #0f3b46, #0e7490, #075063);
+}
+
+.theme-light .header-bar::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(14, 116, 144, 0.32), rgba(251, 146, 60, 0.26), transparent);
+}
+
+.theme-light .sidebar-brand {
+  background: linear-gradient(140deg, #cdeee9, #f7fffd 70%);
+}
+
+.theme-light aside { box-shadow: 10px 0 28px rgba(16, 74, 85, 0.06); }
+
+.theme-light aside .bg-slate-900\/60,
+.theme-light aside .bg-slate-900\/90 {
+  background: linear-gradient(135deg, rgba(227, 246, 243, 0.95), rgba(255, 250, 243, 0.88));
+}
+
+.theme-light .nav-active {
+  background: linear-gradient(100deg, #c9efeb, #eefaf7);
+  box-shadow: inset 3px 0 0 #0a8799, 0 8px 22px rgba(14, 116, 144, 0.12);
+}
+
+.theme-light .nav-active .text-sky-400 { color: #087e91; }
+.theme-light .nav-active:hover { transform: translateX(2px); }
+
+.theme-light .metric-card {
+  box-shadow: 0 10px 26px rgba(15, 83, 94, 0.08), 0 2px 5px rgba(15, 83, 94, 0.04);
+}
+
+.theme-light .metric-card:hover {
+  border-color: rgba(8, 126, 145, 0.35);
+  box-shadow: 0 18px 35px rgba(15, 83, 94, 0.13), 0 4px 10px rgba(15, 83, 94, 0.05);
+  transform: translateY(-4px);
+}
+
+.theme-light .three-d-ocean {
+  background:
+    radial-gradient(ellipse at 52% 25%, rgba(100, 226, 235, 0.7), transparent 43%),
+    radial-gradient(ellipse at 8% 88%, rgba(31, 130, 198, 0.4), transparent 45%),
+    linear-gradient(180deg, #d5f6f3, #a8dcd7 46%, #397c9a 100%);
+}
+
+.theme-light .three-d-grid { background-image: linear-gradient(rgba(7, 103, 129, 0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(7, 103, 129, 0.22) 1px, transparent 1px); }
+.theme-light .three-d-horizon { background: linear-gradient(90deg, transparent, rgba(6, 120, 144, 0.9), transparent); box-shadow: 0 0 28px rgba(14, 165, 190, 0.55); }
+.theme-light .three-d-star { background: #ff9d45; box-shadow: 0 0 18px #f97316; }
+
+.ocean-atmosphere {
+  background-image:
+    linear-gradient(115deg, transparent 0 35%, rgba(34, 211, 238, 0.035) 35.1% 35.3%, transparent 35.4%),
+    linear-gradient(20deg, transparent 0 62%, rgba(251, 146, 60, 0.03) 62.1% 62.25%, transparent 62.35%);
+  background-size: 100% 100%, 100% 100%;
+  opacity: 0.8;
+}
+
+@keyframes page-reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes signal-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
+  50% { box-shadow: 0 0 24px rgba(34, 211, 238, 0.12); }
+}
+
+.page-reveal { animation: page-reveal 650ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.panel-lift { animation: page-reveal 700ms 100ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.metric-card { animation: page-reveal 550ms cubic-bezier(0.16, 1, 0.3, 1) both, signal-glow 5s 1s ease-in-out infinite; }
+.stagger-grid > *:nth-child(2) { animation-delay: 70ms; }
+.stagger-grid > *:nth-child(3) { animation-delay: 140ms; }
+.stagger-grid > *:nth-child(4) { animation-delay: 210ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
+
+/* Subtle Enterprise Radar & Animation Effects */
+@keyframes radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes ping-subtle {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  80%, 100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 6s linear infinite;
+}
+
+.animate-ping-subtle {
+  animation: ping-subtle 3s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+/* Sophisticated Dark Nautical Grid Background */
+.marine-grid {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+.marine-dots {
+  background-image: radial-gradient(rgba(14, 165, 233, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Enterprise Glass Card Effect */
+.glass-panel {
+  background: rgba(13, 22, 38, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.glass-panel-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel-hover:hover {
+  border-color: rgba(14, 165, 233, 0.3);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.5), 0 0 20px -2px rgba(14, 165, 233, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Professional Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070d17;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 165, 233, 0.4);
+}
+
+/* Slim horizontal scrollbar for chip rows (sector selector, prompt chips) -
+   visible enough to signal "more content this way" without a bulky classic bar. */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(14, 165, 233, 0.35) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar { height: 5px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(14, 165, 233, 0.35);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.6); }
+.theme-light .scrollbar-thin { scrollbar-color: rgba(14, 116, 144, 0.35) transparent; }
+.theme-light .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(14, 116, 144, 0.35); }
+
+/* Edge fades for chip rows — matched to each row's own (theme-aware) panel
+   background rather than a hardcoded Tailwind gradient color, so the fade
+   doesn't turn into a mismatched dark smudge once the panel lightens. */
+.chip-fade-l, .chip-fade-r {
+  --chip-fade-bg: rgba(2, 6, 23, 0.9);
+}
+.chip-fade-l { background: linear-gradient(to right, var(--chip-fade-bg), transparent); }
+.chip-fade-r { background: linear-gradient(to left, var(--chip-fade-bg), transparent); }
+.theme-light .chip-fade-l, .theme-light .chip-fade-r { --chip-fade-bg: rgba(255, 255, 255, 0.85); }
+
+.sector-fade-l, .sector-fade-r {
+  --chip-fade-bg: #0c1524;
+}
+.sector-fade-l { background: linear-gradient(to right, var(--chip-fade-bg), transparent); }
+.sector-fade-r { background: linear-gradient(to left, var(--chip-fade-bg), transparent); }
+.theme-light .sector-fade-l, .theme-light .sector-fade-r { --chip-fade-bg: rgba(255, 255, 255, 0.85); }
