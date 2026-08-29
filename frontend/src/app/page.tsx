@@ -443,6 +443,34 @@ export default function Home() {
   const [manualLon, setManualLon] = useState("");
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
   const [geoLocating, setGeoLocating] = useState(false);
+
+  // A coarse fix waiting to be confirmed or corrected, rather than being
+  // applied silently as if it were the user's actual position.
+  const [pendingFix, setPendingFix] = useState<{
+    latitude: number;
+    longitude: number;
+    accuracyM: number;
+  } | null>(null);
+
+  // Last position the user actually settled on. Devices with no GPS cannot
+  // locate themselves (a desktop on a phone hotspot sees one mobile access
+  // point and falls back to an IP lookup that lands on the carrier's
+  // regional hub), so the fix that matters is the one the user confirmed —
+  // remember it instead of making them find it again every session.
+  const [savedLocation, setSavedLocation] = useState<{
+    name: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("orca.savedLocation");
+      if (raw) setSavedLocation(JSON.parse(raw));
+    } catch {
+      // Private window or blocked storage — the picker just starts empty.
+    }
+  }, []);
   const [alertsRead, setAlertsRead] = useState(false);
   const [vesselType, setVesselType] = useState("Artisanal fishing boat");
   const [departureHour, setDepartureHour] = useState("05:30");
@@ -788,6 +816,17 @@ export default function Home() {
     setLocationPickerOpen(false);
     setLocationSearch("");
     setGeoStatus(null);
+    setPendingFix(null);
+
+    // Whatever the user settled on becomes the remembered position, so the
+    // next session offers it in one click.
+    setSavedLocation(loc);
+    try {
+      window.localStorage.setItem("orca.savedLocation", JSON.stringify(loc));
+    } catch {
+      // Storage unavailable — the location still applies for this session.
+    }
+
     askORCA(LOCATION_BRIEFING_QUERY, loc);
   };
 
@@ -804,17 +843,24 @@ export default function Home() {
       (pos) => {
         setGeoLocating(false);
 
-        // Anything this coarse is a Wi-Fi/IP lookup rather than GPS, and an
-        // IP lookup resolves to where the connection is registered — the
-        // user's broadband address, not where they are. Label it for what
-        // it is instead of calling it their current location.
-        const coarse = pos.coords.accuracy > 5000;
+        const latitude = Number(pos.coords.latitude.toFixed(4));
+        const longitude = Number(pos.coords.longitude.toFixed(4));
 
-        applyCustomLocation({
-          name: coarse ? "Approximate Location (network)" : "My Current Location",
-          latitude: Number(pos.coords.latitude.toFixed(4)),
-          longitude: Number(pos.coords.longitude.toFixed(4)),
-        });
+        // A fix this coarse did not come from GPS. It is a network lookup,
+        // and on a mobile connection that resolves to the carrier's regional
+        // hub — potentially hundreds of km away. Applying it silently would
+        // put the console somewhere the user has never been, so hand it to
+        // them to confirm or correct instead of treating it as their
+        // position.
+        if (pos.coords.accuracy > 5000) {
+          setPendingFix({ latitude, longitude, accuracyM: pos.coords.accuracy });
+          setManualLat(String(latitude));
+          setManualLon(String(longitude));
+          setGeoStatus(null);
+          return;
+        }
+
+        applyCustomLocation({ name: "My Current Location", latitude, longitude });
       },
       (err) => {
         setGeoLocating(false);
@@ -1722,6 +1768,28 @@ export default function Home() {
             </div>
 
             <div className="flex-1 space-y-5 overflow-y-auto p-6 scrollbar-thin">
+              {/* Remembered position — one click, and always right, which a
+                  device with no GPS cannot manage on its own. */}
+              {savedLocation && !pendingFix && (
+                <button
+                  onClick={() => applyCustomLocation(savedLocation)}
+                  disabled={loading}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-left transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-mono uppercase tracking-wider text-emerald-300/80">
+                      Saved position
+                    </span>
+                    <span className="block truncate text-sm font-semibold text-emerald-100">
+                      {savedLocation.name}
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px] text-emerald-300/70">
+                    {savedLocation.latitude.toFixed(3)}, {savedLocation.longitude.toFixed(3)}
+                  </span>
+                </button>
+              )}
+
               {/* Current location */}
               <button
                 onClick={useCurrentLocation}
@@ -1731,6 +1799,56 @@ export default function Home() {
                 <Crosshair className={`h-4 w-4 ${geoLocating ? "animate-spin" : ""}`} />
                 {geoLocating ? "Locating..." : "Use my current location"}
               </button>
+
+              {/* Coarse fix: confirm or correct, never applied silently. */}
+              {pendingFix && (
+                <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <p className="text-xs font-semibold text-amber-200">
+                    This is only an approximate fix
+                  </p>
+                  <p className="mt-2 text-[11px] leading-relaxed text-amber-100/80">
+                    Your device has no GPS signal, so the browser fell back to a network
+                    lookup accurate to about{" "}
+                    <strong>
+                      {pendingFix.accuracyM >= 1000
+                        ? `${Math.round(pendingFix.accuracyM / 1000)} km`
+                        : `${Math.round(pendingFix.accuracyM)} m`}
+                    </strong>
+                    . On a mobile connection that usually points at your carrier&apos;s
+                    regional hub, not you.
+                  </p>
+                  <p className="mt-2 font-mono text-[11px] text-amber-200">
+                    {pendingFix.latitude.toFixed(4)}, {pendingFix.longitude.toFixed(4)}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() =>
+                        applyCustomLocation({
+                          name: "Approximate Location (network)",
+                          latitude: pendingFix.latitude,
+                          longitude: pendingFix.longitude,
+                        })
+                      }
+                      disabled={loading}
+                      className="flex-1 rounded-lg border border-amber-400/40 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 disabled:opacity-60"
+                    >
+                      Use it anyway
+                    </button>
+                    <button
+                      onClick={() => setPendingFix(null)}
+                      className="flex-1 rounded-lg bg-amber-400 px-3 py-2 text-xs font-semibold text-amber-950 transition hover:bg-amber-300"
+                    >
+                      Set exact position
+                    </button>
+                  </div>
+
+                  <p className="mt-2 text-[10px] leading-relaxed text-amber-100/70">
+                    The coordinate boxes below are filled in with this fix — correct them
+                    and it will be remembered for next time.
+                  </p>
+                </section>
+              )}
 
               {geoStatus && (
                 <p className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-[11px] leading-relaxed text-amber-200">
