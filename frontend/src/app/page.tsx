@@ -811,14 +811,21 @@ export default function Home() {
       },
       (err) => {
         setGeoLocating(false);
-        // Browsers only expose location over HTTPS or on localhost, so a
-        // teammate opening the app over a plain-HTTP LAN address will land
-        // here — say so rather than showing a bare "permission denied".
-        setGeoStatus(
-          err.code === err.PERMISSION_DENIED
-            ? "Location permission was denied. Allow it in your browser, or pick a place below."
-            : "Could not get your location. Pick a place below or enter coordinates.",
-        );
+
+        // Each failure has a different fix, and a denied permission is the
+        // one that will not resolve by retrying: once blocked, the browser
+        // never re-prompts, so the user has to re-allow it in site settings.
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoStatus(
+            window.isSecureContext
+              ? "Location is blocked for this site. Click the icon at the left of the address bar, set Location to Allow, then try again."
+              : "Location needs an HTTPS address. Open the console on localhost, or enter coordinates below.",
+          );
+        } else if (err.code === err.TIMEOUT) {
+          setGeoStatus("Timed out getting a GPS fix. Try again near a window or with Wi-Fi on.");
+        } else {
+          setGeoStatus("No position available from this device right now. Pick a place or enter coordinates below.");
+        }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
@@ -1091,17 +1098,29 @@ export default function Home() {
                 <span>{systemTime || "Synchronizing..."}</span>
               </div>
 
-              {/* Custom location picker */}
+              {/* Active sector — also the entry point to the location picker,
+                  so the navbar both reports where the console is pointed and
+                  is the control for changing it. */}
               <button
                 onClick={() => {
                   setGeoStatus(null);
                   setLocationPickerOpen(true);
                 }}
-                className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-sky-500/40 hover:text-sky-300 hover:scale-105"
-                title="Add a custom location"
+                className="flex max-w-[15rem] items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-left transition hover:border-sky-500/40 hover:scale-105"
+                title={`Active sector: ${locationName} (${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E) — click to change`}
               >
-                <MapPin className="h-3.5 w-3.5 text-sky-400" />
-                <span className="hidden sm:inline">Add location</span>
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-sky-400" />
+                <span className="hidden min-w-0 leading-tight sm:block">
+                  <span className="block text-[9px] font-mono uppercase tracking-wider text-slate-500">
+                    {t("sectorTargeting")}
+                  </span>
+                  <span className="block truncate text-[11px] font-semibold text-slate-200">
+                    {locationName}
+                  </span>
+                </span>
+                <span className="hidden shrink-0 font-mono text-[10px] text-slate-500 lg:block">
+                  {latitude.toFixed(2)}, {longitude.toFixed(2)}
+                </span>
               </button>
 
               <button onClick={() => setAlertsOpen(true)} className="relative rounded-lg border border-slate-800 bg-slate-900 p-2 text-slate-400 transition hover:border-sky-500/40 hover:text-sky-400 hover:scale-105" title="Open safety alerts">
@@ -1349,6 +1368,13 @@ export default function Home() {
                   pfz={mapPfz}
                   geo={mapGeo}
                   route={mapRoute}
+                  onLocateMe={({ latitude, longitude }: { latitude: number; longitude: number }) =>
+                    applyCustomLocation({
+                      name: "My Current Location",
+                      latitude: Number(latitude.toFixed(4)),
+                      longitude: Number(longitude.toFixed(4)),
+                    })
+                  }
                 />
 
                 {/* Bottom-left status stack: telemetry HUD + active layer.

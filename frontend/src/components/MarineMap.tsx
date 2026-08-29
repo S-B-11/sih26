@@ -71,6 +71,10 @@ export type MarineMapProps = {
     waypoints: MapWaypoint[];
     hazardsAvoided: Array<{ name: string; type: string }>;
   } | null;
+  // Called with the device's GPS fix when "My location" succeeds, so the
+  // dashboard can retarget the whole console (sector name, agent data) to
+  // where the user actually is rather than only panning the map.
+  onLocateMe?: (position: { latitude: number; longitude: number; accuracyM: number }) => void;
 };
 
 // Popup/label copy for the map's own layers (PFZ, thermal, geofence,
@@ -100,7 +104,12 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     backToDevice: "My location",
     locating: "Locating...",
     geoUnsupported: "Location not supported by this browser.",
-    geoDenied: "Location unavailable. Needs permission and an HTTPS (or localhost) address.",
+    geoBlocked: "Location is blocked for this site. Allow it in your browser's site settings (the icon at the left of the address bar), then try again.",
+    geoInsecure: "Location needs an HTTPS address. Open the console on localhost, or use the coordinate box in Add location.",
+    geoTimeout: "Timed out getting a GPS fix. Try again near a window or with Wi-Fi on.",
+    geoUnavailable: "No position available from this device right now.",
+    youAreHere: "Your location",
+    accuracyLabel: "accurate to ~{m} m",
   },
   hi: {
     sstLabel: "समुद्र सतह तापमान: {sst}°C",
@@ -124,7 +133,12 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     backToDevice: "मेरा स्थान",
     locating: "स्थान खोजा जा रहा है...",
     geoUnsupported: "यह ब्राउज़र स्थान समर्थित नहीं करता।",
-    geoDenied: "स्थान अनुपलब्ध। अनुमति और HTTPS (या localhost) पता आवश्यक है।",
+    geoBlocked: "इस साइट के लिए स्थान अवरुद्ध है। ब्राउज़र की साइट सेटिंग्स में इसे अनुमति दें, फिर पुनः प्रयास करें।",
+    geoInsecure: "स्थान के लिए HTTPS पता आवश्यक है। localhost पर खोलें या निर्देशांक दर्ज करें।",
+    geoTimeout: "GPS स्थान प्राप्त करने में समय समाप्त। खिड़की के पास पुनः प्रयास करें।",
+    geoUnavailable: "इस डिवाइस से अभी कोई स्थिति उपलब्ध नहीं है।",
+    youAreHere: "आपका स्थान",
+    accuracyLabel: "~{m} मीटर तक सटीक",
   },
   ta: {
     sstLabel: "கடல் மேற்பரப்பு வெப்பநிலை: {sst}°C",
@@ -148,7 +162,12 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     backToDevice: "என் இருப்பிடம்",
     locating: "கண்டறியப்படுகிறது...",
     geoUnsupported: "இந்த உலாவி இருப்பிடத்தை ஆதரிக்கவில்லை.",
-    geoDenied: "இருப்பிடம் கிடைக்கவில்லை. அனுமதியும் HTTPS (அல்லது localhost) முகவரியும் தேவை.",
+    geoBlocked: "இந்த தளத்திற்கு இருப்பிடம் தடுக்கப்பட்டுள்ளது. உலாவி அமைப்புகளில் அனுமதித்து மீண்டும் முயற்சிக்கவும்.",
+    geoInsecure: "இருப்பிடத்திற்கு HTTPS முகவரி தேவை. localhost இல் திறக்கவும் அல்லது ஆயத்தொலைவுகளை உள்ளிடவும்.",
+    geoTimeout: "GPS இருப்பிடம் பெற நேரம் முடிந்தது. மீண்டும் முயற்சிக்கவும்.",
+    geoUnavailable: "இந்த சாதனத்திலிருந்து தற்போது இருப்பிடம் இல்லை.",
+    youAreHere: "உங்கள் இருப்பிடம்",
+    accuracyLabel: "~{m} மீ துல்லியம்",
   },
   te: {
     sstLabel: "సముద్ర ఉపరితల ఉష్ణోగ్రత: {sst}°C",
@@ -172,7 +191,12 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     backToDevice: "నా స్థానం",
     locating: "కనుగొంటోంది...",
     geoUnsupported: "ఈ బ్రౌజర్ స్థానాన్ని సపోర్ట్ చేయదు.",
-    geoDenied: "స్థానం అందుబాటులో లేదు. అనుమతి మరియు HTTPS (లేదా localhost) చిరునామా అవసరం.",
+    geoBlocked: "ఈ సైట్‌కు స్థానం నిరోధించబడింది. బ్రౌజర్ సెట్టింగ్‌లలో అనుమతించి మళ్లీ ప్రయత్నించండి.",
+    geoInsecure: "స్థానానికి HTTPS చిరునామా అవసరం. localhost లో తెరవండి లేదా కోఆర్డినేట్‌లు నమోదు చేయండి.",
+    geoTimeout: "GPS స్థానం పొందడంలో సమయం ముగిసింది. మళ్లీ ప్రయత్నించండి.",
+    geoUnavailable: "ఈ పరికరం నుండి ప్రస్తుతం స్థానం అందుబాటులో లేదు.",
+    youAreHere: "మీ స్థానం",
+    accuracyLabel: "~{m} మీ ఖచ్చితత్వం",
   },
   ml: {
     sstLabel: "സമുദ്ര ഉപരിതല താപനില: {sst}°C",
@@ -196,7 +220,12 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     backToDevice: "എന്റെ സ്ഥാനം",
     locating: "കണ്ടെത്തുന്നു...",
     geoUnsupported: "ഈ ബ്രൗസർ ലൊക്കേഷൻ പിന്തുണയ്ക്കുന്നില്ല.",
-    geoDenied: "ലൊക്കേഷൻ ലഭ്യമല്ല. അനുമതിയും HTTPS (അല്ലെങ്കിൽ localhost) വിലാസവും വേണം.",
+    geoBlocked: "ഈ സൈറ്റിന് ലൊക്കേഷൻ തടഞ്ഞിരിക്കുന്നു. ബ്രൗസർ ക്രമീകരണങ്ങളിൽ അനുവദിച്ച് വീണ്ടും ശ്രമിക്കുക.",
+    geoInsecure: "ലൊക്കേഷന് HTTPS വിലാസം വേണം. localhost ൽ തുറക്കുക അല്ലെങ്കിൽ കോർഡിനേറ്റുകൾ നൽകുക.",
+    geoTimeout: "GPS ലൊക്കേഷൻ ലഭിക്കാൻ സമയം കഴിഞ്ഞു. വീണ്ടും ശ്രമിക്കുക.",
+    geoUnavailable: "ഈ ഉപകരണത്തിൽ നിന്ന് ഇപ്പോൾ സ്ഥാനം ലഭ്യമല്ല.",
+    youAreHere: "നിങ്ങളുടെ സ്ഥാനം",
+    accuracyLabel: "~{m} മീ കൃത്യത",
   },
   bn: {
     sstLabel: "সমুদ্রপৃষ্ঠের তাপমাত্রা: {sst}°C",
@@ -220,7 +249,12 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     backToDevice: "আমার অবস্থান",
     locating: "খোঁজা হচ্ছে...",
     geoUnsupported: "এই ব্রাউজার অবস্থান সমর্থন করে না।",
-    geoDenied: "অবস্থান পাওয়া যায়নি। অনুমতি ও HTTPS (বা localhost) ঠিকানা প্রয়োজন।",
+    geoBlocked: "এই সাইটের জন্য অবস্থান ব্লক করা আছে। ব্রাউজার সেটিংসে অনুমতি দিয়ে আবার চেষ্টা করুন।",
+    geoInsecure: "অবস্থানের জন্য HTTPS ঠিকানা প্রয়োজন। localhost এ খুলুন বা স্থানাঙ্ক লিখুন।",
+    geoTimeout: "GPS অবস্থান পেতে সময় শেষ। আবার চেষ্টা করুন।",
+    geoUnavailable: "এই ডিভাইস থেকে এখন অবস্থান পাওয়া যাচ্ছে না।",
+    youAreHere: "আপনার অবস্থান",
+    accuracyLabel: "~{m} মি নির্ভুল",
   },
   gu: {
     sstLabel: "સમુદ્ર સપાટીનું તાપમાન: {sst}°C",
@@ -244,7 +278,12 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     backToDevice: "મારું સ્થાન",
     locating: "શોધી રહ્યું છે...",
     geoUnsupported: "આ બ્રાઉઝર સ્થાનને સમર્થન આપતું નથી.",
-    geoDenied: "સ્થાન અનુપલબ્ધ. પરવાનગી અને HTTPS (અથવા localhost) સરનામું જરૂરી છે.",
+    geoBlocked: "આ સાઇટ માટે સ્થાન અવરોધિત છે. બ્રાઉઝર સેટિંગ્સમાં પરવાનગી આપી ફરી પ્રયાસ કરો.",
+    geoInsecure: "સ્થાન માટે HTTPS સરનામું જરૂરી છે. localhost પર ખોલો અથવા કોઓર્ડિનેટ્સ દાખલ કરો.",
+    geoTimeout: "GPS સ્થાન મેળવવામાં સમય પૂરો. ફરી પ્રયાસ કરો.",
+    geoUnavailable: "આ ડિવાઇસમાંથી હાલમાં સ્થાન ઉપલબ્ધ નથી.",
+    youAreHere: "તમારું સ્થાન",
+    accuracyLabel: "~{m} મી ચોકસાઈ",
   },
   mr: {
     sstLabel: "समुद्र पृष्ठभागाचे तापमान: {sst}°C",
@@ -268,7 +307,12 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     backToDevice: "माझे स्थान",
     locating: "शोधत आहे...",
     geoUnsupported: "हा ब्राउझर स्थानाला समर्थन देत नाही.",
-    geoDenied: "स्थान अनुपलब्ध. परवानगी आणि HTTPS (किंवा localhost) पत्ता आवश्यक आहे.",
+    geoBlocked: "या साइटसाठी स्थान अवरोधित आहे. ब्राउझर सेटिंग्जमध्ये परवानगी देऊन पुन्हा प्रयत्न करा.",
+    geoInsecure: "स्थानासाठी HTTPS पत्ता आवश्यक आहे. localhost वर उघडा किंवा निर्देशांक प्रविष्ट करा.",
+    geoTimeout: "GPS स्थान मिळवण्यात वेळ संपली. पुन्हा प्रयत्न करा.",
+    geoUnavailable: "या डिव्हाइसवरून सध्या स्थान उपलब्ध नाही.",
+    youAreHere: "तुमचे स्थान",
+    accuracyLabel: "~{m} मी अचूकता",
   },
 };
 
@@ -313,6 +357,9 @@ function markerIcon(emoji: string, background: string, size = 30, pulse = false)
 }
 
 const vesselIcon = markerIcon("⚓", "#0ea5e9", 32, true);
+// Distinct from the vessel/sector marker: this is where the device says the
+// user physically is, not the sector being analysed.
+const deviceIcon = markerIcon("📍", "#22d3ee", 30, true);
 const pfzIcon = markerIcon("🐟", "#059669", 30, true);
 const geofenceIcon = markerIcon("🛡️", "#d97706");
 const waypointIcon = markerIcon("•", "#64748b", 18);
@@ -395,9 +442,13 @@ function ScaleControl() {
 function MapRecenterControls({
   center,
   language,
+  onLocated,
+  onLocateMe,
 }: {
   center: { lat: number; lon: number; name: string };
   language?: string;
+  onLocated: (fix: { latitude: number; longitude: number; accuracyM: number } | null) => void;
+  onLocateMe?: MarineMapProps["onLocateMe"];
 }) {
   const map = useMap();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -426,14 +477,42 @@ function MapRecenterControls({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 11, { duration: 0.8 });
+
+        const fix = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracyM: pos.coords.accuracy,
+        };
+
+        // Mark the exact fix (plus its accuracy radius) and zoom to a level
+        // that matches how precise it actually is — a 30 m urban fix earns
+        // street zoom, a 5 km cell-tower fix does not.
+        onLocated(fix);
+
+        const zoom = pos.coords.accuracy <= 100 ? 15 : pos.coords.accuracy <= 1000 ? 13 : 11;
+        map.flyTo([fix.latitude, fix.longitude], zoom, { duration: 0.8 });
+
+        onLocateMe?.(fix);
       },
-      () => {
+      (err) => {
         setLocating(false);
-        // Browsers gate geolocation behind HTTPS (or localhost), so this
-        // is the expected path for anyone opening the console over a
-        // plain-HTTP LAN address rather than a real failure.
-        setGeoError(mt(language, "geoDenied"));
+        onLocated(null);
+
+        // Distinguish the three failures, because the fix differs for each:
+        // a denied permission has to be re-granted in the browser's own site
+        // settings (re-asking never re-prompts once denied), while an
+        // unavailable/timed-out fix is worth simply retrying.
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoError(
+            window.isSecureContext
+              ? mt(language, "geoBlocked")
+              : mt(language, "geoInsecure"),
+          );
+        } else if (err.code === err.TIMEOUT) {
+          setGeoError(mt(language, "geoTimeout"));
+        } else {
+          setGeoError(mt(language, "geoUnavailable"));
+        }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
@@ -623,11 +702,20 @@ function WindVelocityLayer({ grid, language }: { grid: WindGridLayer[] | null; l
   return null;
 }
 
-export default function MarineMap({ center, activeLayer, marine, pfz, geo, route, language }: MarineMapProps) {
+export default function MarineMap({ center, activeLayer, marine, pfz, geo, route, language, onLocateMe }: MarineMapProps) {
   const restrictedZone = geo?.restrictedZone;
   const mpaZone = geo?.mpaZone;
   const allZones = useAllZones();
   const isLight = useIsLightTheme();
+
+  // The device's own GPS fix, kept separate from `center` (the sector under
+  // analysis) so the map can show both at once — where you are, and where
+  // the agents are reporting on.
+  const [deviceFix, setDeviceFix] = useState<{
+    latitude: number;
+    longitude: number;
+    accuracyM: number;
+  } | null>(null);
 
   const windGrid = useWindGrid(activeLayer === "wind", center.lat, center.lon);
 
@@ -679,8 +767,35 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
       )}
 
       <ScaleControl />
-      <MapRecenterControls center={center} language={language} />
+      <MapRecenterControls
+        center={center}
+        language={language}
+        onLocated={setDeviceFix}
+        onLocateMe={onLocateMe}
+      />
       <Recenter lat={center.lat} lon={center.lon} />
+
+      {/* Exact device position: a precise point plus the accuracy radius the
+          GPS actually reported, so the fix is never shown as more certain
+          than it is. */}
+      {deviceFix && (
+        <>
+          <Circle
+            center={[deviceFix.latitude, deviceFix.longitude]}
+            radius={Math.max(deviceFix.accuracyM, 25)}
+            pathOptions={{ color: "#38bdf8", weight: 1, fillColor: "#38bdf8", fillOpacity: 0.12 }}
+          />
+          <Marker position={[deviceFix.latitude, deviceFix.longitude]} icon={deviceIcon}>
+            <Popup>
+              <strong>{mt(language, "youAreHere")}</strong>
+              <br />
+              {deviceFix.latitude.toFixed(5)}°, {deviceFix.longitude.toFixed(5)}°
+              <br />
+              {mt(language, "accuracyLabel", { m: Math.round(deviceFix.accuracyM) })}
+            </Popup>
+          </Marker>
+        </>
+      )}
 
       <Marker position={[center.lat, center.lon]} icon={vesselIcon}>
         <Popup>{center.name}</Popup>
