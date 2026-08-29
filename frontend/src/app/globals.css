@@ -29,11 +29,11 @@ body {
 
 .theme-light .app-shell {
   background:
-    radial-gradient(circle at 8% 6%, rgba(42, 173, 183, 0.2), transparent 23rem),
-    radial-gradient(circle at 92% 4%, rgba(249, 173, 94, 0.2), transparent 25rem),
-    radial-gradient(circle at 42% 78%, rgba(147, 197, 253, 0.18), transparent 28rem),
-    linear-gradient(135deg, #e7f7f5 0%, #f7fbf8 48%, #fff7ed 100%);
-  color: #153a43;
+    radial-gradient(circle at 8% 6%, rgba(20, 166, 180, 0.22), transparent 23rem),
+    radial-gradient(circle at 92% 4%, rgba(247, 158, 68, 0.2), transparent 25rem),
+    radial-gradient(circle at 42% 78%, rgba(125, 184, 252, 0.18), transparent 28rem),
+    linear-gradient(135deg, #eef9f7 0%, #f9fcfa 48%, #fdf5ea 100%);
+  color: #0e2e35;
 }
 
 .theme-light .app-shell::before {
@@ -54,38 +54,49 @@ body {
 .theme-light .app-shell .text-white,
 .theme-light .app-shell .text-slate-100,
 .theme-light .app-shell .text-slate-200 {
-  color: #12363e;
+  color: #0e2e35;
 }
 
 .theme-light .app-shell .text-slate-300,
 .theme-light .app-shell .text-slate-400,
 .theme-light .app-shell .text-slate-500 {
+  color: #3d5b62;
+}
+
+.theme-light .app-shell .text-slate-600,
+.theme-light .app-shell .text-slate-700 {
   color: #547178;
+}
+
+.theme-light .app-shell .text-slate-800 {
+  color: #d9ece9;
 }
 
 .theme-light .app-shell .bg-slate-900,
 .theme-light .app-shell .bg-slate-900\/60,
 .theme-light .app-shell .bg-slate-900\/80,
 .theme-light .app-shell .bg-slate-950\/90 {
-  background-color: rgba(242, 250, 249, 0.9);
+  background-color: rgba(240, 250, 248, 0.92);
 }
 
 .theme-light .app-shell .bg-\[\#09111e\]\/98,
+.theme-light .app-shell .bg-\[\#09111e\],
 .theme-light .app-shell .bg-\[\#0b1322\],
 .theme-light .app-shell .bg-\[\#070e1a\],
 .theme-light .app-shell .bg-\[\#0c1524\],
+.theme-light .app-shell .bg-\[\#070d17\]\/95,
 .theme-light .app-shell .bg-slate-950,
 .theme-light .app-shell .bg-slate-950\/65,
 .theme-light .app-shell .bg-slate-900\/70,
 .theme-light .app-shell .bg-slate-900\/90,
 .theme-light .app-shell .bg-slate-900\/95 {
-  background-color: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 12px 32px rgba(20, 76, 86, 0.07);
+  background-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 12px 32px rgba(15, 70, 80, 0.09);
 }
 
 .theme-light .app-shell [class*="border-slate-8"],
 .theme-light .app-shell [class*="border-slate-7"] {
-  border-color: rgba(15, 70, 80, 0.13);
+  border-color: rgba(15, 70, 80, 0.16);
 }
 
 .theme-light .app-shell .rounded-2xl.bg-\[\#0b1322\],
@@ -110,19 +121,19 @@ body {
 /* Accent colours (sky/emerald/amber/teal/violet/rose/cyan) were tuned for a
    dark canvas; on the light surfaces they read washed-out and fail contrast.
    Deepen them for the light theme while keeping each hue recognisable. */
-.theme-light .app-shell .text-sky-400 { color: #0c7ea3; }
+.theme-light .app-shell .text-sky-400 { color: #0876a0; }
 .theme-light .app-shell .text-sky-300 { color: #0369a1; }
-.theme-light .app-shell .text-emerald-400 { color: #0a8f5b; }
+.theme-light .app-shell .text-emerald-400 { color: #068a54; }
 .theme-light .app-shell .text-emerald-300 { color: #047a4c; }
-.theme-light .app-shell .text-amber-400 { color: #b3670a; }
+.theme-light .app-shell .text-amber-400 { color: #ad6206; }
 .theme-light .app-shell .text-amber-300 { color: #9a5a0a; }
-.theme-light .app-shell .text-teal-400 { color: #0f766e; }
-.theme-light .app-shell .text-violet-400 { color: #7c3aed; }
-.theme-light .app-shell .text-rose-400 { color: #d92662; }
+.theme-light .app-shell .text-teal-400 { color: #0d6f67; }
+.theme-light .app-shell .text-violet-400 { color: #7530e0; }
+.theme-light .app-shell .text-rose-400 { color: #d31f5c; }
 .theme-light .app-shell .text-rose-300 { color: #be123c; }
-.theme-light .app-shell .text-cyan-300 { color: #0e7490; }
-.theme-light .app-shell .text-cyan-400 { color: #0e7490; }
-.theme-light .app-shell .text-blue-400 { color: #1d4ed8; }
+.theme-light .app-shell .text-cyan-300 { color: #0b6d86; }
+.theme-light .app-shell .text-cyan-400 { color: #0b6d86; }
+.theme-light .app-shell .text-blue-400 { color: #1846c9; }
 /* Only the map marker icon uses cyan-100 outside the always-dark settings-hero
    surface, so scope the darken there rather than remapping the class globally. */
 .theme-light .app-shell .border-cyan-300\/40 .text-cyan-100 { color: #0e7490; }
@@ -252,6 +263,27 @@ body {
   background: #f1f8f7;
   color: #18343b;
   border-color: rgba(15, 70, 80, 0.18);
+}
+
+/* These fields drop the browser's default focus outline (outline-none) for
+   a cleaner look, but without a replacement that's a real keyboard-nav
+   regression — the field becomes indistinguishable from unfocused once
+   you tab into it. Restore a visible indicator, keyed off :focus-visible
+   so it still only shows for keyboard/assistive-tech focus. */
+.settings-input:focus-visible {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.28);
+}
+.theme-light .settings-input:focus-visible {
+  border-color: #0876a0;
+  box-shadow: 0 0 0 3px rgba(8, 118, 160, 0.2);
+}
+
+/* Belt-and-suspenders: every <button> here is interactive, so make the
+   pointer cursor explicit instead of leaning on the browser default —
+   any future disabled-button-styled-as-a-div won't silently inherit it. */
+button:not(:disabled) {
+  cursor: pointer;
 }
 
 .sidebar-brand {
@@ -592,6 +624,18 @@ body {
   background: rgba(14, 165, 233, 0.4);
 }
 
+.theme-light ::-webkit-scrollbar-track {
+  background: #eef7f6;
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: rgba(15, 70, 80, 0.22);
+}
+
+.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 116, 144, 0.45);
+}
+
 /* Slim horizontal scrollbar for chip rows (sector selector, prompt chips) -
    visible enough to signal "more content this way" without a bulky classic bar. */
 .scrollbar-thin {
@@ -624,3 +668,152 @@ body {
 .sector-fade-l { background: linear-gradient(to right, var(--chip-fade-bg), transparent); }
 .sector-fade-r { background: linear-gradient(to left, var(--chip-fade-bg), transparent); }
 .theme-light .sector-fade-l, .theme-light .sector-fade-r { --chip-fade-bg: rgba(255, 255, 255, 0.85); }
+
+/* leaflet-velocity's wind-readout control ships styled as a plain white
+   Windy.com-style tag — restyle it to match the rest of the map's dark
+   telemetry HUD badges instead of clashing against them. */
+.leaflet-control-velocity {
+  background-color: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 4px 8px;
+  color: #e2e8f0;
+  font: 10px/1.5 "JetBrains Mono", ui-monospace, monospace;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.theme-light .leaflet-control-velocity {
+  background-color: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 70, 80, 0.16);
+  color: #12363e;
+}
+
+/* Marine map chrome — Leaflet's default popup/zoom/attribution/scale
+   styling is a plain white-and-grey UI kit that clashes with the app's
+   dark glass panels everywhere else. Restyle it to match instead of
+   letting the map read as a bolted-on third-party widget. */
+.leaflet-popup-content-wrapper {
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.leaflet-popup-content {
+  font: 12px/1.6 "JetBrains Mono", ui-monospace, monospace;
+  margin: 10px 12px;
+}
+.leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: none;
+}
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
+.leaflet-popup-close-button:hover {
+  color: #e2e8f0 !important;
+}
+
+.leaflet-control-zoom a {
+  background-color: rgba(15, 23, 42, 0.9) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+.leaflet-control-zoom a:hover {
+  background-color: rgba(30, 41, 59, 0.95) !important;
+  color: #67e8f9 !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(15, 23, 42, 0.75) !important;
+  color: #94a3b8 !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: #67e8f9 !important;
+}
+
+.leaflet-control-scale-line {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  color: #e2e8f0 !important;
+  font: 10px/1.4 "JetBrains Mono", ui-monospace, monospace !important;
+}
+
+.theme-light .leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.97);
+  color: #12363e;
+  border-color: rgba(15, 70, 80, 0.16);
+}
+.theme-light .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.97);
+}
+.theme-light .leaflet-control-zoom a {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: #12363e !important;
+  border-color: rgba(15, 70, 80, 0.16) !important;
+}
+.theme-light .leaflet-control-zoom a:hover {
+  background-color: #f0fbfa !important;
+  color: #0876a0 !important;
+}
+.theme-light .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.8) !important;
+  color: #547178 !important;
+}
+.theme-light .leaflet-control-attribution a {
+  color: #0876a0 !important;
+}
+.theme-light .leaflet-control-scale-line {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(15, 70, 80, 0.3) !important;
+  color: #12363e !important;
+}
+
+/* Fakes a dark basemap out of standard OpenStreetMap tiles (inverting the
+   light map and rotating hue toward a deliberate dark-green/teal tone),
+   since third-party "already dark" tile providers keep turning out to
+   need an account/API key. className on react-leaflet's TileLayer lands
+   on the tile-pane's own container, so this only touches the map tiles,
+   not the app UI drawn on top of them (markers, popups, HUD overlays). */
+.orca-tile-dark {
+  filter: invert(1) hue-rotate(150deg) brightness(0.9) contrast(0.95) saturate(1.15);
+}
+
+/* Map marker/zone entrance motion — matches the skill's "subtle stagger"
+   spec (250-350ms, small y/scale offset, gentle overshoot) so layers feel
+   like they're populating rather than snapping into place. Respects
+   prefers-reduced-motion globally via the existing rule further up this
+   file (animation-duration forced to 1ms), so no separate guard is needed
+   here. */
+@keyframes map-marker-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+.orca-map-marker-in {
+  animation: map-marker-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes map-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.map-stagger-0 { animation: map-fade-in 280ms ease-out both; }
+.map-stagger-1 { animation: map-fade-in 280ms ease-out 30ms both; }
+.map-stagger-2 { animation: map-fade-in 280ms ease-out 60ms both; }
+.map-stagger-3 { animation: map-fade-in 280ms ease-out 90ms both; }
+.map-stagger-4 { animation: map-fade-in 280ms ease-out 120ms both; }
+.map-stagger-5 { animation: map-fade-in 280ms ease-out 150ms both; }
+.map-stagger-6 { animation: map-fade-in 280ms ease-out 180ms both; }
+.map-stagger-7 { animation: map-fade-in 280ms ease-out 210ms both; }
+
+/* Route polyline "draws itself" from origin to destination instead of
+   appearing instantly — a fixed dash length comfortably longer than any
+   realistic on-screen coastal route at typical zoom levels. */
+@keyframes map-route-draw {
+  from { stroke-dashoffset: 2000; }
+  to { stroke-dashoffset: 0; }
+}
+.orca-route-line {
+  stroke-dasharray: 2000;
+  animation: map-route-draw 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}

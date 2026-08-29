@@ -1,3 +1,5 @@
+from typing import Dict, Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -5,10 +7,13 @@ from pydantic import BaseModel
 from agents.marine_agent import analyze_marine_conditions
 from agents.weather_agent import weather_agent
 from agents.planner import plan_query
-from agents.geo_agent import analyze_location
+from agents.geo_agent import analyze_location, INDIAN_MPA_ZONES, INDIAN_RESTRICTED_ZONES
 from agents.risk_agent import calculate_risk
 from agents.synthesis_agent import synthesize_response
 from agents.location_agent import resolve_location
+from agents.pfz_agent import find_potential_fishing_zone
+from agents.route_agent import plan_safe_route
+from agents.wind_grid_agent import fetch_wind_grid
 
 
 # =========================================================
@@ -46,6 +51,12 @@ class QueryRequest(BaseModel):
     query: str
     language: str = "en"
 
+    # Optional carry-forward context from the conversation so far, so a
+    # follow-up like "what about tomorrow morning?" can reuse the location
+    # from the previous turn instead of falling back to the default
+    # location whenever the new query doesn't name one itself.
+    context: Optional[Dict] = None
+
 
 # =========================================================
 # ROOT ENDPOINT
@@ -81,6 +92,8 @@ def status():
             "weather": "ready",
             "geospatial": "ready",
             "risk": "ready",
+            "pfz": "ready",
+            "route": "ready",
             "synthesis": "ready"
         }
     }
@@ -125,8 +138,8 @@ def query_orca(request: QueryRequest):
 
 @app.get("/api/marine")
 def marine_data(
-    latitude: float = 21.0,
-    longitude: float = 82.0
+    latitude: float = 19.05,
+    longitude: float = 72.80
 ):
 
     try:
@@ -156,8 +169,8 @@ def marine_data(
 
 @app.get("/api/weather")
 def weather_data(
-    latitude: float = 21.0,
-    longitude: float = 82.0
+    latitude: float = 19.05,
+    longitude: float = 72.80
 ):
 
     try:
@@ -182,13 +195,58 @@ def weather_data(
 
 
 # =========================================================
+# STATIC ZONE LIST (for map rendering — every known MPA /
+# restricted zone, not just whichever one a query happens to
+# be inside)
+# =========================================================
+
+@app.get("/api/zones")
+def zones_data():
+
+    return {
+        "success": True,
+        "marine_protected_areas": INDIAN_MPA_ZONES,
+        "restricted_zones": INDIAN_RESTRICTED_ZONES
+    }
+
+
+# =========================================================
+# WIND GRID ENDPOINT (animated flow-field map layer)
+# =========================================================
+
+@app.get("/api/wind-grid")
+def wind_grid_data(
+    latitude: float = 19.05,
+    longitude: float = 72.80,
+    span_deg: float = 3.0
+):
+
+    try:
+
+        data = fetch_wind_grid(
+            latitude,
+            longitude,
+            span_deg
+        )
+
+        return data
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Wind grid agent error: {str(e)}"
+        )
+
+
+# =========================================================
 # GEOSPATIAL AGENT ENDPOINT
 # =========================================================
 
 @app.get("/api/geo")
 def geo_data(
-    latitude: float = 21.0,
-    longitude: float = 82.0
+    latitude: float = 19.05,
+    longitude: float = 72.80
 ):
 
     try:
@@ -213,13 +271,83 @@ def geo_data(
 
 
 # =========================================================
+# PFZ (POTENTIAL FISHING ZONE) AGENT ENDPOINT
+# =========================================================
+
+@app.get("/api/pfz")
+def pfz_data(
+    latitude: float = 19.05,
+    longitude: float = 72.80
+):
+
+    try:
+
+        data = find_potential_fishing_zone(
+            latitude,
+            longitude
+        )
+
+        return {
+            "success": True,
+            "agent": "pfz_agent",
+            "data": data
+        }
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"PFZ agent error: {str(e)}"
+        )
+
+
+# =========================================================
+# ROUTE OPTIMIZATION AGENT ENDPOINT
+# =========================================================
+
+@app.get("/api/route")
+def route_data(
+    origin_latitude: float,
+    origin_longitude: float,
+    destination_latitude: float,
+    destination_longitude: float,
+    origin_name: str = "Origin",
+    destination_name: str = "Destination"
+):
+
+    try:
+
+        data = plan_safe_route(
+            origin_latitude,
+            origin_longitude,
+            destination_latitude,
+            destination_longitude,
+            origin_name,
+            destination_name
+        )
+
+        return {
+            "success": True,
+            "agent": "route_agent",
+            "data": data
+        }
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Route agent error: {str(e)}"
+        )
+
+
+# =========================================================
 # RISK ASSESSMENT ENDPOINT
 # =========================================================
 
 @app.get("/api/risk")
 def risk_data(
-    latitude: float = 21.0,
-    longitude: float = 82.0
+    latitude: float = 19.05,
+    longitude: float = 72.80
 ):
 
     try:
@@ -354,12 +482,45 @@ def orca_query(request: QueryRequest):
                 plan_coordinates = None
 
 
-        location_data = resolve_location(
+        # -------------------------------------------------
+        # CONVERSATION MEMORY FALLBACK
+        #
+        # If this turn's query didn't name a location or give
+        # coordinates (e.g. "what about tomorrow morning?"),
+        # reuse the location the frontend carried forward from
+        # the previous turn instead of silently falling back
+        # to the default location.
+        # -------------------------------------------------
 
-            location=plan_location,
-
-            coordinates=plan_coordinates
+        context_location = (
+            (request.context or {}).get("previous_location")
+            if request.context else None
         )
+
+        if (
+            not plan_location
+            and not plan_coordinates
+            and isinstance(context_location, dict)
+            and context_location.get("latitude") is not None
+            and context_location.get("longitude") is not None
+        ):
+
+            location_data = {
+                "resolved": True,
+                "source": "carried_forward_from_previous_turn",
+                "name": context_location.get("name", "Previous Location"),
+                "latitude": float(context_location["latitude"]),
+                "longitude": float(context_location["longitude"]),
+            }
+
+        else:
+
+            location_data = resolve_location(
+
+                location=plan_location,
+
+                coordinates=plan_coordinates
+            )
 
 
         # =================================================
@@ -463,6 +624,57 @@ def orca_query(request: QueryRequest):
 
 
         # =================================================
+        # STEP 9B - PFZ AGENT (only when the planner flagged
+        # a fishing / PFZ intent, since the grid search issues
+        # several extra live data calls)
+        # =================================================
+
+        pfz = None
+
+        if "pfz_agent" in plan.get("agents_required", []):
+
+            pfz = find_potential_fishing_zone(
+
+                latitude,
+
+                longitude,
+
+                time_context
+            )
+
+
+        # =================================================
+        # STEP 9C - ROUTE AGENT (only when the planner detected
+        # two named locations plus route intent, e.g. "safest
+        # route from Mumbai to Goa")
+        # =================================================
+
+        route = None
+
+        if "route_agent" in plan.get("agents_required", []):
+
+            origin_data = resolve_location(location=plan.get("origin"))
+            destination_data = resolve_location(location=plan.get("destination"))
+
+            route = plan_safe_route(
+
+                origin_data["latitude"],
+
+                origin_data["longitude"],
+
+                destination_data["latitude"],
+
+                destination_data["longitude"],
+
+                origin_data.get("name", "Origin"),
+
+                destination_data.get("name", "Destination"),
+
+                time_context
+            )
+
+
+        # =================================================
         # STEP 10 - SYNTHESIS AGENT
         # =================================================
 
@@ -477,7 +689,9 @@ def orca_query(request: QueryRequest):
             geo,
 
             risk,
-            request.language
+            request.language,
+            pfz,
+            route
         )
 
 
@@ -523,7 +737,11 @@ def orca_query(request: QueryRequest):
 
                 "geospatial": geo,
 
-                "risk": risk
+                "risk": risk,
+
+                "pfz": pfz,
+
+                "route": route
             },
 
             # -------------------------------------------------

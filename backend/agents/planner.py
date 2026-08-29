@@ -1,5 +1,103 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import re
+
+
+# =========================================================
+# TYPO-TOLERANT LOCATION MATCHING
+# =========================================================
+
+def _levenshtein(a: str, b: str) -> int:
+    """
+    Edit distance between two strings (character insert/delete/
+    substitute), used to catch small location-name typos like
+    "khochi" -> "kochi".
+    """
+
+    if a == b:
+        return 0
+
+    previous_row = list(range(len(b) + 1))
+
+    for i, char_a in enumerate(a, 1):
+
+        current_row = [i] + [0] * len(b)
+
+        for j, char_b in enumerate(b, 1):
+
+            substitution_cost = 0 if char_a == char_b else 1
+
+            current_row[j] = min(
+                previous_row[j] + 1,           # deletion
+                current_row[j - 1] + 1,        # insertion
+                previous_row[j - 1] + substitution_cost,
+            )
+
+        previous_row = current_row
+
+    return previous_row[-1]
+
+
+def _find_known_locations(
+    query: str,
+    known_locations: List[str]
+) -> List[str]:
+    """
+    Finds known locations mentioned in the query, in the order they
+    appear. Each word is checked for an exact match first (fast, no
+    false positives); a word with no exact match falls back to a
+    typo-tolerant comparison against the known-location list, so a
+    query with one correctly-spelled place and one typo'd place
+    (e.g. "route from khochi to chennai") still finds both instead of
+    an all-or-nothing match silently giving up on the typo.
+    """
+
+    words = re.findall(r"[\wऀ-ॿ]+", query)
+    offset = 0
+    hits: List[Tuple[int, str]] = []
+
+    for word in words:
+
+        # Re-find each word's position from where the previous word
+        # ended, so repeated words still get distinct positions for
+        # ordering.
+        position = query.index(word, offset)
+        offset = position + len(word)
+
+        if word in known_locations:
+            hits.append((position, word))
+            continue
+
+        if len(word) < 4:
+            continue
+
+        best_place, best_distance = None, None
+
+        for place in known_locations:
+
+            if abs(len(place) - len(word)) > 2:
+                continue
+
+            distance = _levenshtein(word, place)
+
+            if best_distance is None or distance < best_distance:
+                best_place, best_distance = place, distance
+
+        allowed_distance = 1 if len(word) <= 5 else 2
+
+        if best_distance is not None and best_distance <= allowed_distance:
+            hits.append((position, best_place))
+
+    hits.sort(key=lambda hit: hit[0])
+
+    seen = set()
+    ordered: List[str] = []
+
+    for _, place in hits:
+        if place not in seen:
+            seen.add(place)
+            ordered.append(place)
+
+    return ordered
 
 
 # =========================================================
@@ -399,18 +497,64 @@ def plan_query(user_query: str) -> Dict:
         "puri",
         "kolkata",
         "jagdalpur",
+
+        # Hindi (Devanagari) aliases — must match location_agent.LOCATIONS
+        "मुंबई",
+        "गोवा",
+        "चेन्नई",
+        "विशाखापत्तनम",
+        "कोच्चि",
+        "पुरी",
+        "कोलकाता",
+        "जगदलपुर",
     ]
 
     # -----------------------------------------------------
-    # Detect location
+    # Detect location (typo-tolerant, e.g. "khochi" -> "kochi")
     # -----------------------------------------------------
 
-    for place in known_locations:
+    matched_locations = _find_known_locations(query, known_locations)
 
-        if place in query:
+    if matched_locations:
 
-            location = place
-            break
+        location = matched_locations[0]
+
+    # =====================================================
+    # ROUTE DETECTION (two named locations + route intent)
+    # =====================================================
+
+    route_keywords = [
+        "route",
+        "safest route",
+        "safe route",
+        "path",
+        "navigate",
+        "sail from",
+        "voyage",
+
+        # Hindi
+        "मार्ग",
+        "रास्ता",
+        "सुरक्षित मार्ग",
+    ]
+
+    origin = None
+    destination = None
+
+    if any(word in query for word in route_keywords):
+
+        # matched_locations is already deduplicated and ordered by
+        # where each place (or its typo) appears in the query text.
+        if len(matched_locations) >= 2:
+
+            origin = matched_locations[0]
+            destination = matched_locations[1]
+
+            agents.append("route_agent")
+
+            tasks.append(
+                f"Plan a safe route from {origin.title()} to {destination.title()}."
+            )
 
     # =====================================================
     # COORDINATE DETECTION
@@ -508,6 +652,12 @@ def plan_query(user_query: str) -> Dict:
 
             agents.append(
                 "marine_agent"
+            )
+
+        if "pfz_agent" not in agents:
+
+            agents.append(
+                "pfz_agent"
             )
 
         tasks.append(
@@ -665,6 +815,10 @@ def plan_query(user_query: str) -> Dict:
         "location": location,
 
         "coordinates": coordinates,
+
+        "origin": origin,
+
+        "destination": destination,
 
         "time": requested_time,
 

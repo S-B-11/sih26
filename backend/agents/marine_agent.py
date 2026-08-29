@@ -301,8 +301,8 @@ def _calculate_marine_risk(
 # =========================================================
 
 def analyze_marine_conditions(
-    latitude: float = 21.0,
-    longitude: float = 82.0,
+    latitude: float = 19.05,
+    longitude: float = 72.80,
     time: Optional[Union[str, Dict]] = None
 ) -> Dict:
     """

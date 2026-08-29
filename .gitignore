@@ -24,6 +24,10 @@ backend/**/*.pyc
 backend/.env
 .agents/
 
+# Local tool config — .mcp.json can contain live API keys, never commit it
+.claude/
+.mcp.json
+
 # Logs
 logs/
 *.log

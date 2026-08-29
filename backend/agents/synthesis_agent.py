@@ -1,4 +1,4 @@
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 
 # =========================================================
@@ -221,13 +221,69 @@ RECOMMENDATION_I18N = {
     },
 }
 
+# =========================================================
+# PFZ SUMMARY LINE — LOCALIZED TEMPLATES
+# =========================================================
+PFZ_LINE_I18N = {
+    "en": "🐟 Nearest Potential Fishing Zone: ~{distance} km {bearing} of your position (SST/chlorophyll productivity signal, {confidence} confidence).",
+    "hi": "🐟 निकटतम संभावित मत्स्य क्षेत्र (PFZ): आपकी स्थिति से ~{distance} किमी {bearing} दिशा में (SST/क्लोरोफिल उत्पादकता संकेत, विश्वसनीयता: {confidence})।",
+    "ta": "🐟 அருகிலுள்ள சாத்தியமான மீன்பிடி மண்டலம்: உங்கள் இருப்பிடத்திலிருந்து ~{distance} கிமீ {bearing} திசையில் (SST/குளோரோஃபில் உற்பத்தித் திறன் சமிக்ஞை, நம்பகத்தன்மை: {confidence}).",
+    "te": "🐟 సమీప సంభావ్య మత్స్య మండలం (PFZ): మీ స్థానం నుండి ~{distance} కి.మీ {bearing} దిశలో (SST/క్లోరోఫిల్ ఉత్పాదకత సంకేతం, విశ్వసనీయత: {confidence}).",
+    "ml": "🐟 അടുത്തുള്ള സാധ്യതയുള്ള മത്സ്യബന്ധന മേഖല: നിങ്ങളുടെ സ്ഥാനത്ത് നിന്ന് ~{distance} കി.മീ {bearing} ദിശയിൽ (SST/ക്ലോറോഫിൽ ഉൽപാദനക്ഷമത സൂചന, വിശ്വാസ്യത: {confidence}).",
+    "bn": "🐟 নিকটতম সম্ভাব্য মৎস্য অঞ্চল (PFZ): আপনার অবস্থান থেকে ~{distance} কিমি {bearing} দিকে (SST/ক্লোরোফিল উৎপাদনশীলতার সংকেত, নির্ভরযোগ্যতা: {confidence})।",
+    "gu": "🐟 નજીકનું સંભવિત મત્સ્ય ક્ષેત્ર (PFZ): તમારા સ્થાનથી ~{distance} કિમી {bearing} દિશામાં (SST/ક્લોરોફિલ ઉત્પાદકતા સંકેત, વિશ્વસનીયતા: {confidence}).",
+    "mr": "🐟 सर्वात जवळचे संभाव्य मासेमारी क्षेत्र (PFZ): तुमच्या स्थानापासून ~{distance} किमी {bearing} दिशेला (SST/क्लोरोफिल उत्पादकता संकेत, विश्वासार्हता: {confidence}).",
+}
+
+PFZ_UNAVAILABLE_I18N = {
+    "en": "🐟 Potential Fishing Zone estimate is unavailable for this location right now — check the official INCOIS PFZ advisory.",
+    "hi": "🐟 इस स्थान के लिए संभावित मत्स्य क्षेत्र (PFZ) अनुमान अभी उपलब्ध नहीं है — कृपया आधिकारिक INCOIS PFZ सलाह देखें।",
+}
+
+# =========================================================
+# ROUTE SUMMARY LINE — LOCALIZED TEMPLATES
+# =========================================================
+ROUTE_LINE_I18N = {
+    "en": "🧭 Safe route to {destination}: ~{distance} km, {risk_level} risk{hazard_note}.",
+    "hi": "🧭 {destination} तक सुरक्षित मार्ग: ~{distance} किमी, {risk_level} जोखिम{hazard_note}।",
+    "ta": "🧭 {destination} க்கான பாதுகாப்பான பாதை: ~{distance} கிமீ, {risk_level} ஆபத்து{hazard_note}.",
+    "te": "🧭 {destination} కి సురక్షిత మార్గం: ~{distance} కి.మీ, {risk_level} ప్రమాదం{hazard_note}.",
+    "ml": "🧭 {destination} ലേക്കുള്ള സുരക്ഷിത പാത: ~{distance} കി.മീ, {risk_level} അപകടസാധ്യത{hazard_note}.",
+    "bn": "🧭 {destination} পর্যন্ত নিরাপদ পথ: ~{distance} কিমি, {risk_level} ঝুঁকি{hazard_note}।",
+    "gu": "🧭 {destination} સુધીનો સલામત માર્ગ: ~{distance} કિમી, {risk_level} જોખમ{hazard_note}.",
+    "mr": "🧭 {destination} पर्यंतचा सुरक्षित मार्ग: ~{distance} किमी, {risk_level} धोका{hazard_note}.",
+}
+
+ROUTE_HAZARD_NOTE_I18N = {
+    "en": " (routed around {count} restricted/protected zone(s))",
+    "hi": " ({count} प्रतिबंधित/संरक्षित क्षेत्र(ों) से बचकर)",
+    "ta": " ({count} தடைசெய்யப்பட்ட/பாதுகாக்கப்பட்ட மண்டலங்களைத் தவிர்த்து)",
+    "te": " ({count} నిషేధిత/సంరక్షిత మండలాలను తప్పించి)",
+    "ml": " ({count} നിരോധിത/സംരക്ഷിത മേഖലകൾ ഒഴിവാക്കി)",
+    "bn": " ({count}টি নিষিদ্ধ/সংরক্ষিত অঞ্চল এড়িয়ে)",
+    "gu": " ({count} પ્રતિબંધિત/સંરક્ષિત ઝોન ટાળીને)",
+    "mr": " ({count} प्रतिबंधित/संरक्षित क्षेत्रे टाळून)",
+}
+
+ROUTE_UNAVAILABLE_I18N = {
+    "en": "🧭 A safe route could not be computed for this request.",
+    "hi": "🧭 इस अनुरोध के लिए सुरक्षित मार्ग की गणना नहीं की जा सकी।",
+}
+
+
 def _detect_language(query: str) -> str:
     """
     Detect if the user queried in an Indian regional language.
     """
     text = query.lower()
-    # Hindi script detection
+    # Devanagari script covers both Hindi and Marathi, so check for
+    # Marathi-only words first. Words shared with Hindi (e.g. "\u0938\u0941\u0930\u0915\u094d\u0937\u093f\u0924",
+    # "\u0938\u092e\u0941\u0926\u094d\u0930") must NOT be in this list \u2014 they previously caused plain
+    # Hindi queries to be misclassified as Marathi.
     if any("\u0900" <= c <= "\u097f" for c in text):
+        marathi_keywords = ["\u0906\u0939\u0947", "\u0915\u093e\u092f", "\u0938\u093e\u0920\u0940", "\u092e\u093e\u0938\u0947\u092e\u093e\u0930\u0940", "\u0939\u0935\u093e\u092e\u093e\u0928", "\u0932\u093e\u091f\u093e"]
+        if any(k in text for k in marathi_keywords):
+            return "mr"
         return "hi"
     # Tamil script
     if any("\u0b80" <= c <= "\u0bff" for c in text):
@@ -244,10 +300,6 @@ def _detect_language(query: str) -> str:
     # Gujarati script
     if any("\u0a80" <= c <= "\u0aff" for c in text):
         return "gu"
-    # Marathi (Devanagari keywords)
-    marathi_keywords = ["सुरक्षित", "मासेमारी", "लाटा", "हवामान", "समुद्र"]
-    if any(k in text for k in marathi_keywords):
-        return "mr"
     return "en"
 
 
@@ -257,7 +309,9 @@ def synthesize_response(
     weather_data: Dict[str, Any],
     geo_data: Dict[str, Any],
     risk_data: Dict[str, Any],
-    requested_language: str = ""
+    requested_language: str = "",
+    pfz_data: Optional[Dict[str, Any]] = None,
+    route_data: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     ORCA Synthesis & Aggregator Agent (Layer 5 & 6)
@@ -399,6 +453,43 @@ def synthesize_response(
     else:
         why_explanation_points.append(wt["geo_clear"])
 
+    # -----------------------------------------------------
+    # PFZ Summary Line
+    # -----------------------------------------------------
+    pfz_line = ""
+    if pfz_data is not None:
+        nearest_zone = pfz_data.get("nearest_zone")
+        if pfz_data.get("success") and nearest_zone:
+            template = PFZ_LINE_I18N.get(lang, PFZ_LINE_I18N["en"])
+            pfz_line = template.format(
+                distance=nearest_zone.get("distance_km"),
+                bearing=nearest_zone.get("bearing_compass"),
+                confidence=nearest_zone.get("confidence"),
+            )
+        else:
+            pfz_line = PFZ_UNAVAILABLE_I18N.get(lang, PFZ_UNAVAILABLE_I18N["en"])
+
+    # -----------------------------------------------------
+    # Route Summary Line
+    # -----------------------------------------------------
+    route_line = ""
+    if route_data is not None:
+        if route_data.get("success"):
+            hazards = route_data.get("hazards_avoided") or []
+            hazard_note = ""
+            if hazards:
+                note_template = ROUTE_HAZARD_NOTE_I18N.get(lang, ROUTE_HAZARD_NOTE_I18N["en"])
+                hazard_note = note_template.format(count=len(hazards))
+            template = ROUTE_LINE_I18N.get(lang, ROUTE_LINE_I18N["en"])
+            route_line = template.format(
+                destination=route_data.get("destination", {}).get("name", "destination"),
+                distance=route_data.get("distance_km"),
+                risk_level=route_data.get("risk_level"),
+                hazard_note=hazard_note,
+            )
+        else:
+            route_line = ROUTE_UNAVAILABLE_I18N.get(lang, ROUTE_UNAVAILABLE_I18N["en"])
+
     if lang == "hi":
         response_text = (
             f"🟢 समुद्री सुरक्षा मूल्यांकन: {risk_level} (सुरक्षा स्कोर: {score}/100)\n\n"
@@ -447,6 +538,12 @@ def synthesize_response(
             f"{recommendation}"
         )
 
+    if pfz_line:
+        response_text = f"{response_text}\n\n{pfz_line}"
+
+    if route_line:
+        response_text = f"{response_text}\n\n{route_line}"
+
     return {
         "query": user_query,
         "language_detected": lang,
@@ -454,6 +551,8 @@ def synthesize_response(
         "safety_score": score,
         "confidence_score": confidence_score,
         "response": response_text,
+        "pfz": pfz_data,
+        "route": route_data,
         "reasons": reasons,
         "why_explanation": why_explanation_points,
         "citations": EVIDENCE_CITATIONS,

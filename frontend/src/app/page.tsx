@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   Activity,
   AlertTriangle,
@@ -45,6 +46,19 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { MarineMapProps } from "../components/MarineMap";
+
+// Leaflet touches `window` at module scope, so it can only run in the
+// browser — load it as a client-only chunk instead of importing
+// react-leaflet directly, which would break Next.js's server render pass.
+const MarineMap = dynamic(() => import("../components/MarineMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center text-xs font-mono text-slate-500">
+      Loading map…
+    </div>
+  ),
+});
 
 // =========================================================
 // SUPPORTED REGIONAL LANGUAGES (ISRO / INCOIS MULTILINGUAL)
@@ -64,6 +78,37 @@ const SPEECH_LOCALES: Record<string, string> = {
   en: "en-IN", hi: "hi-IN", ta: "ta-IN", te: "te-IN", ml: "ml-IN", bn: "bn-IN", gu: "gu-IN", mr: "mr-IN",
 };
 
+// Unicode-script detection so a typed query auto-selects the reply language
+// regardless of the workspace language dropdown (mirrors the backend's
+// agents/synthesis_agent.py _detect_language script ranges). Hindi and
+// Marathi share the Devanagari block, so a small keyword list distinguishes
+// them the same way the backend does. Romanized (Latin-script) queries fall
+// through to null so the caller keeps using the dropdown's language.
+const SCRIPT_RANGES: Array<{ code: string; test: RegExp }> = [
+  { code: "ta", test: /[஀-௿]/ },
+  { code: "te", test: /[ఀ-౿]/ },
+  { code: "ml", test: /[ഀ-ൿ]/ },
+  { code: "bn", test: /[ঀ-৿]/ },
+  { code: "gu", test: /[઀-૿]/ },
+  { code: "hi", test: /[ऀ-ॿ]/ },
+];
+// Only words that are genuinely Marathi (not shared Hindi/Marathi Sanskrit
+// vocabulary like "सुरक्षित"/"समुद्र", which caused plain Hindi queries to
+// misfire as Marathi). "आहे"/"काय"/"साठी" are Marathi-only function words;
+// "मासेमारी"/"हवामान"/"लाटा" are Marathi's distinct terms for fishing/
+// weather/waves where Hindi uses different words entirely.
+const MARATHI_HINTS = ["आहे", "काय", "साठी", "मासेमारी", "हवामान", "लाटा"];
+
+const detectQueryLanguage = (text: string): string | null => {
+  for (const { code, test } of SCRIPT_RANGES) {
+    if (test.test(text)) {
+      if (code === "hi" && MARATHI_HINTS.some((hint) => text.includes(hint))) return "mr";
+      return code;
+    }
+  }
+  return null;
+};
+
 const SHELL_COPY: Record<string, Record<string, string>> = {
   en: { settings: "Settings & preferences", alerts: "Safety alerts", voyage: "Plan a safer voyage", back: "Back to dashboard", layers: "Map layers", live: "LIVE DATA", briefing: "Ask ORCA for full briefing", read: "Mark all as read", vessel: "Vessel profile", departure: "Departure time", duration: "Trip duration (hours)", generate: "Generate voyage plan", connectionError: "Connection to the ORCA backend was interrupted. Please make sure the server is running and try again.", timeoutError: "ORCA is taking longer than expected to respond. Please try again in a moment.", analysisCompleted: "Analysis completed.", analysisEyebrow: "REAL-TIME TELEMETRY", analysisTitle: "Marine data analysis", analysisDesc: "Live gauges and comparative telemetry across sea, wind and safety signals for your active sector.", comfortRange: "Comfort range", operationalLimit: "Operational limit", comparisonTitle: "Metric comparison", comparisonDesc: "Current readings normalised against operational safety thresholds.", liveReading: "Live reading", lastUpdated: "Last updated", confidenceLabel: "Confidence", oceanCurrentLabel: "Ocean current", historicalTrend: "Historical trend", historicalTrendDesc: "Readings collected from your queries and background telemetry — saved on this device.", notEnoughData: "Not enough readings yet. Ask ORCA a few questions or leave this tab open to build a trend.", readingsCount: "readings", liveAutoRefresh: "Live auto-refresh every 45s", plannerAgent: "Query planner", plannerTask: "Reads your question and assigns the right specialists", locationAgent: "Location resolver", locationTask: "Finds coordinates for the active sector", synthesisAgent: "Synthesis agent", synthesisTask: "Combines every signal into one explainable recommendation", pipelineFlowLabel: "Live data flow", stepComplete: "Complete" },
   hi: { settings: "सेटिंग्स और प्राथमिकताएँ", alerts: "सुरक्षा अलर्ट", voyage: "सुरक्षित यात्रा की योजना", back: "डैशबोर्ड पर वापस", layers: "मानचित्र परतें", live: "लाइव डेटा", briefing: "ORCA से पूरा ब्रीफिंग पूछें", read: "सभी पढ़े हुए चिह्नित करें", vessel: "नौका प्रोफ़ाइल", departure: "प्रस्थान समय", duration: "यात्रा अवधि (घंटे)", generate: "यात्रा योजना बनाएँ", connectionError: "ORCA बैकएंड से संपर्क टूट गया। कृपया सुनिश्चित करें कि सर्वर चल रहा है और पुनः प्रयास करें।", timeoutError: "ORCA को उत्तर देने में सामान्य से अधिक समय लग रहा है। कृपया थोड़ी देर बाद पुनः प्रयास करें।", analysisCompleted: "विश्लेषण पूर्ण हुआ।", analysisEyebrow: "रीयल-टाइम टेलीमेट्री", analysisTitle: "समुद्री डेटा विश्लेषण", analysisDesc: "आपके सक्रिय क्षेत्र के लिए समुद्र, हवा और सुरक्षा संकेतों के लाइव गेज और तुलनात्मक टेलीमेट्री।", comfortRange: "अनुकूल सीमा", operationalLimit: "परिचालन सीमा", comparisonTitle: "मेट्रिक तुलना", comparisonDesc: "वर्तमान रीडिंग परिचालन सुरक्षा सीमाओं के अनुसार सामान्यीकृत।", liveReading: "लाइव रीडिंग", lastUpdated: "अंतिम अपडेट", confidenceLabel: "विश्वसनीयता", oceanCurrentLabel: "समुद्री धारा", historicalTrend: "ऐतिहासिक रुझान", historicalTrendDesc: "आपके प्रश्नों और बैकग्राउंड टेलीमेट्री से एकत्र रीडिंग — इस डिवाइस पर सहेजी गई।", notEnoughData: "अभी पर्याप्त रीडिंग नहीं हैं। ORCA से कुछ प्रश्न पूछें या रुझान बनाने के लिए यह टैब खुला छोड़ें।", readingsCount: "रीडिंग", liveAutoRefresh: "हर 45 सेकंड में लाइव ऑटो-रीफ्रेश", plannerAgent: "प्रश्न योजनाकार", plannerTask: "आपके प्रश्न को पढ़ता है और सही विशेषज्ञों को नियुक्त करता है", locationAgent: "स्थान समाधानकर्ता", locationTask: "सक्रिय क्षेत्र के लिए निर्देशांक खोजता है", synthesisAgent: "संश्लेषण एजेंट", synthesisTask: "प्रत्येक संकेत को मिलाकर एक स्पष्ट सिफारिश तैयार करता है", pipelineFlowLabel: "लाइव डेटा प्रवाह", stepComplete: "पूर्ण" },
@@ -73,6 +118,59 @@ const SHELL_COPY: Record<string, Record<string, string>> = {
   bn: { settings: "সেটিংস ও পছন্দ", alerts: "নিরাপত্তা সতর্কতা", voyage: "নিরাপদ যাত্রার পরিকল্পনা", back: "ড্যাশবোর্ডে ফিরে যান", layers: "মানচিত্র স্তর", live: "লাইভ ডেটা", briefing: "ORCA-কে সম্পূর্ণ ব্রিফিং জিজ্ঞাসা করুন", read: "সব পড়া হিসাবে চিহ্নিত করুন", vessel: "নৌকার প্রোফাইল", departure: "যাত্রার সময়", duration: "যাত্রার সময়কাল (ঘণ্টা)", generate: "যাত্রা পরিকল্পনা তৈরি করুন", connectionError: "ORCA ব্যাকএন্ডের সাথে সংযোগ বিচ্ছিন্ন হয়েছে। সার্ভার চলছে কিনা নিশ্চিত করে আবার চেষ্টা করুন।", timeoutError: "ORCA প্রতিক্রিয়া জানাতে প্রত্যাশার চেয়ে বেশি সময় নিচ্ছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।", analysisCompleted: "বিশ্লেষণ সম্পন্ন হয়েছে।", analysisEyebrow: "রিয়েল-টাইম টেলিমেট্রি", analysisTitle: "সামুদ্রিক ডেটা বিশ্লেষণ", analysisDesc: "আপনার সক্রিয় অঞ্চলের জন্য সমুদ্র, বাতাস ও নিরাপত্তা সংকেতের লাইভ গেজ এবং তুলনামূলক টেলিমেট্রি।", comfortRange: "অনুকূল সীমা", operationalLimit: "পরিচালন সীমা", comparisonTitle: "মেট্রিক তুলনা", comparisonDesc: "বর্তমান রিডিং পরিচালন নিরাপত্তা সীমার ভিত্তিতে স্বাভাবিকীকৃত।", liveReading: "লাইভ রিডিং", lastUpdated: "সর্বশেষ আপডেট", confidenceLabel: "আস্থা", oceanCurrentLabel: "সমুদ্র স্রোত", historicalTrend: "ঐতিহাসিক প্রবণতা", historicalTrendDesc: "আপনার প্রশ্ন ও ব্যাকগ্রাউন্ড টেলিমেট্রি থেকে সংগৃহীত রিডিং — এই ডিভাইসে সংরক্ষিত।", notEnoughData: "এখনও পর্যাপ্ত রিডিং নেই। ORCA-কে কয়েকটি প্রশ্ন জিজ্ঞাসা করুন অথবা প্রবণতা তৈরি করতে এই ট্যাবটি খোলা রাখুন।", readingsCount: "রিডিং", liveAutoRefresh: "প্রতি ৪৫ সেকেন্ডে লাইভ অটো-রিফ্রেশ", plannerAgent: "কোয়েরি পরিকল্পনাকারী", plannerTask: "আপনার প্রশ্ন পড়ে সঠিক বিশেষজ্ঞদের নিয়োগ করে", locationAgent: "অবস্থান সমাধানকারী", locationTask: "সক্রিয় অঞ্চলের জন্য স্থানাঙ্ক খুঁজে বের করে", synthesisAgent: "সংশ্লেষণ এজেন্ট", synthesisTask: "প্রতিটি সংকেত একত্রিত করে একটি ব্যাখ্যাযোগ্য সুপারিশ তৈরি করে", pipelineFlowLabel: "লাইভ ডেটা প্রবাহ", stepComplete: "সম্পন্ন" },
   gu: { settings: "સેટિંગ્સ અને પસંદગીઓ", alerts: "સલામતી ચેતવણીઓ", voyage: "સુરક્ષિત સફરની યોજના", back: "ડેશબોર્ડ પર પાછા જાઓ", layers: "નકશાના સ્તરો", live: "લાઇવ ડેટા", briefing: "ORCA પાસે સંપૂર્ણ માહિતી પૂછો", read: "બધાને વાંચેલા તરીકે ચિહ્નિત કરો", vessel: "નૌકાની પ્રોફાઇલ", departure: "પ્રસ્થાન સમય", duration: "સફરનો સમય (કલાક)", generate: "સફર યોજના બનાવો", connectionError: "ORCA બેકએન્ડ સાથેનું જોડાણ તૂટી ગયું. કૃપા કરીને ખાતરી કરો કે સર્વર ચાલુ છે અને ફરી પ્રયાસ કરો.", timeoutError: "ORCA ને પ્રતિસાદ આપવામાં અપેક્ષા કરતાં વધુ સમય લાગી રહ્યો છે. થોડી વાર પછી ફરી પ્રયાસ કરો.", analysisCompleted: "વિશ્લેષણ પૂર્ણ થયું.", analysisEyebrow: "રીયલ-ટાઇમ ટેલિમેટ્રી", analysisTitle: "દરિયાઈ ડેટા વિશ્લેષણ", analysisDesc: "તમારા સક્રિય ક્ષેત્ર માટે દરિયો, પવન અને સલામતી સંકેતોના લાઇવ ગેજ અને તુલનાત્મક ટેલિમેટ્રી.", comfortRange: "અનુકૂળ મર્યાદા", operationalLimit: "પરિચાલન મર્યાદા", comparisonTitle: "મેટ્રિક સરખામણી", comparisonDesc: "વર્તમાન રીડિંગ પરિચાલન સલામતી મર્યાદાઓ અનુસાર પ્રમાણિત.", liveReading: "લાઇવ રીડિંગ", lastUpdated: "છેલ્લે અપડેટ થયું", confidenceLabel: "વિશ્વસનીયતા", oceanCurrentLabel: "સમુદ્રી પ્રવાહ", historicalTrend: "ઐતિહાસિક વલણ", historicalTrendDesc: "તમારા પ્રશ્નો અને બેકગ્રાઉન્ડ ટેલિમેટ્રીમાંથી એકત્રિત રીડિંગ — આ ડિવાઇસ પર સાચવેલ.", notEnoughData: "હજુ પૂરતા રીડિંગ નથી. ORCAને થોડા પ્રશ્નો પૂછો અથવા વલણ બનાવવા માટે આ ટેબ ખુલ્લું રાખો.", readingsCount: "રીડિંગ", liveAutoRefresh: "દર 45 સેકન્ડે લાઇવ ઓટો-રિફ્રેશ", plannerAgent: "ક્વેરી પ્લાનર", plannerTask: "તમારા પ્રશ્નને વાંચે છે અને યોગ્ય નિષ્ણાતોને સોંપે છે", locationAgent: "સ્થાન નિરાકરણકર્તા", locationTask: "સક્રિય ક્ષેત્ર માટે કોઓર્ડિનેટ્સ શોધે છે", synthesisAgent: "સંશ્લેષણ એજન્ટ", synthesisTask: "દરેક સંકેતને જોડીને એક સ્પષ્ટ ભલામણ બનાવે છે", pipelineFlowLabel: "લાઇવ ડેટા પ્રવાહ", stepComplete: "પૂર્ણ" },
   mr: { settings: "सेटिंग्ज आणि प्राधान्ये", alerts: "सुरक्षा सूचना", voyage: "सुरक्षित प्रवासाचे नियोजन", back: "डॅशबोर्डवर परत जा", layers: "नकाशा स्तर", live: "थेट डेटा", briefing: "ORCA कडून संपूर्ण माहिती विचारा", read: "सर्व वाचलेले म्हणून चिन्हांकित करा", vessel: "नौका प्रोफाइल", departure: "प्रस्थान वेळ", duration: "प्रवासाचा कालावधी (तास)", generate: "प्रवास योजना तयार करा", connectionError: "ORCA बॅकएंडशी कनेक्शन तुटले. सर्व्हर सुरू आहे याची खात्री करा आणि पुन्हा प्रयत्न करा.", timeoutError: "ORCA ला प्रतिसाद द्यायला अपेक्षेपेक्षा जास्त वेळ लागत आहे. थोड्या वेळाने पुन्हा प्रयत्न करा.", analysisCompleted: "विश्लेषण पूर्ण झाले.", analysisEyebrow: "रिअल-टाइम टेलिमेट्री", analysisTitle: "सागरी डेटा विश्लेषण", analysisDesc: "तुमच्या सक्रिय क्षेत्रासाठी समुद्र, वारा आणि सुरक्षा संकेतांचे थेट गेज आणि तुलनात्मक टेलिमेट्री.", comfortRange: "अनुकूल मर्यादा", operationalLimit: "कार्यान्वयन मर्यादा", comparisonTitle: "मेट्रिक तुलना", comparisonDesc: "सध्याचे रीडिंग कार्यान्वयन सुरक्षा मर्यादांनुसार सामान्यीकृत आहेत.", liveReading: "थेट रीडिंग", lastUpdated: "शेवटचे अद्यतन", confidenceLabel: "विश्वासार्हता", oceanCurrentLabel: "सागरी प्रवाह", historicalTrend: "ऐतिहासिक कल", historicalTrendDesc: "तुमच्या प्रश्नांमधून आणि पार्श्वभूमी टेलिमेट्रीमधून गोळा केलेल्या नोंदी — या डिव्हाइसवर जतन केलेल्या.", notEnoughData: "अजून पुरेशा नोंदी नाहीत. ORCA ला काही प्रश्न विचारा किंवा कल तयार करण्यासाठी हे टॅब उघडे ठेवा.", readingsCount: "नोंदी", liveAutoRefresh: "दर 45 सेकंदांनी थेट ऑटो-रीफ्रेश", plannerAgent: "क्वेरी नियोजक", plannerTask: "तुमचा प्रश्न वाचतो आणि योग्य तज्ञांची नियुक्ती करतो", locationAgent: "स्थान निराकरणकर्ता", locationTask: "सक्रिय क्षेत्रासाठी निर्देशांक शोधतो", synthesisAgent: "संश्लेषण एजंट", synthesisTask: "प्रत्येक संकेत एकत्र करून एक स्पष्ट शिफारस तयार करतो", pipelineFlowLabel: "थेट डेटा प्रवाह", stepComplete: "पूर्ण" },
+};
+
+// Vessel-type dropdown: the underlying value stays the fixed English
+// string (it's spliced directly into the English voyage-plan query sent
+// to askORCA), but the label shown in the <select> is localized so the
+// rest of the modal isn't Hindi/etc. around one untranslated English row.
+const VESSEL_TYPE_VALUES = ["Artisanal fishing boat", "Mechanised fishing vessel", "Small research vessel"];
+
+const VESSEL_TYPE_COPY: Record<string, Record<string, string>> = {
+  en: { "Artisanal fishing boat": "Artisanal fishing boat", "Mechanised fishing vessel": "Mechanised fishing vessel", "Small research vessel": "Small research vessel" },
+  hi: { "Artisanal fishing boat": "पारंपरिक मछली पकड़ने वाली नाव", "Mechanised fishing vessel": "मशीनीकृत मछली पकड़ने वाला जहाज़", "Small research vessel": "छोटा अनुसंधान जहाज़" },
+  ta: { "Artisanal fishing boat": "பாரம்பரிய மீன்பிடி படகு", "Mechanised fishing vessel": "இயந்திரமயமாக்கப்பட்ட மீன்பிடி கப்பல்", "Small research vessel": "சிறிய ஆராய்ச்சிக் கப்பல்" },
+  te: { "Artisanal fishing boat": "సాంప్రదాయ చేపల పడవ", "Mechanised fishing vessel": "యాంత్రిక చేపల నౌక", "Small research vessel": "చిన్న పరిశోధన నౌక" },
+  ml: { "Artisanal fishing boat": "പരമ്പരാഗത മത്സ്യബന്ധന ബോട്ട്", "Mechanised fishing vessel": "യന്ത്രവൽകൃത മത്സ്യബന്ധന കപ്പൽ", "Small research vessel": "ചെറിയ ഗവേഷണ കപ്പൽ" },
+  bn: { "Artisanal fishing boat": "ঐতিহ্যবাহী মাছ ধরার নৌকা", "Mechanised fishing vessel": "যান্ত্রিক মৎস্য জাহাজ", "Small research vessel": "ছোট গবেষণা জাহাজ" },
+  gu: { "Artisanal fishing boat": "પરંપરાગત માછીમારી બોટ", "Mechanised fishing vessel": "યાંત્રિક માછીમારી જહાજ", "Small research vessel": "નાનું સંશોધન જહાજ" },
+  mr: { "Artisanal fishing boat": "पारंपरिक मासेमारी बोट", "Mechanised fishing vessel": "यांत्रिक मासेमारी जहाज", "Small research vessel": "लहान संशोधन जहाज" },
+};
+
+const vesselLabel = (language: string, value: string) =>
+  VESSEL_TYPE_COPY[language]?.[value] || VESSEL_TYPE_COPY.en[value] || value;
+
+// The voyage-plan request was previously always built as a hardcoded
+// English sentence — so opening the Departure Assistant in Hindi (etc.)
+// still generated an English query, which correctly (but confusingly)
+// got an English reply once query-language auto-detection shipped.
+// Localizing the template itself means the generated query is actually
+// written in the workspace language, so detection naturally replies in
+// the same language instead of needing a separate override.
+const VOYAGE_QUERY_I18N: Record<string, string> = {
+  en: "Create a voyage plan for a {vessel} departing {location} at {time} for {duration} hours. Include safe route, PFZ opportunity, weather, swell and geofence checks.",
+  hi: "{location} से {time} बजे प्रस्थान करने वाली {vessel} के लिए {duration} घंटे की यात्रा योजना बनाएं। सुरक्षित मार्ग, PFZ अवसर, मौसम, लहर और जियोफेंस जांच शामिल करें।",
+  ta: "{location} இலிருந்து {time} மணிக்கு புறப்படும் {vessel} க்கான {duration} மணிநேர பயணத் திட்டத்தை உருவாக்கவும். பாதுகாப்பான பாதை, PFZ வாய்ப்பு, வானிலை, அலை மற்றும் ஜியோஃபென்ஸ் சரிபார்ப்புகளை சேர்க்கவும்.",
+  te: "{location} నుండి {time} గంటలకు బయలుదేరే {vessel} కోసం {duration} గంటల ప్రయాణ ప్రణాళికను రూపొందించండి. సురక్షిత మార్గం, PFZ అవకాశం, వాతావరణం, అల మరియు జియోఫెన్స్ తనిఖీలను చేర్చండి.",
+  ml: "{location} ൽ നിന്ന് {time} ന് പുറപ്പെടുന്ന {vessel} നായി {duration} മണിക്കൂർ യാത്രാ പദ്ധതി തയ്യാറാക്കുക. സുരക്ഷിത പാത, PFZ അവസരം, കാലാവസ്ഥ, തിരമാല, ജിയോഫെൻസ് പരിശോധനകൾ ഉൾപ്പെടുത്തുക.",
+  bn: "{location} থেকে {time} টায় যাত্রা শুরু করা {vessel} এর জন্য {duration} ঘণ্টার যাত্রা পরিকল্পনা তৈরি করুন। নিরাপদ পথ, PFZ সুযোগ, আবহাওয়া, ঢেউ ও জিওফেন্স পরীক্ষা অন্তর্ভুক্ত করুন।",
+  gu: "{location} થી {time} વાગ્યે પ્રસ્થાન કરતી {vessel} માટે {duration} કલાકની સફર યોજના બનાવો. સલામત માર્ગ, PFZ તક, હવામાન, મોજાં અને જિયોફેન્સ તપાસનો સમાવેશ કરો.",
+  mr: "{location} येथून {time} वाजता प्रस्थान करणाऱ्या {vessel} साठी {duration} तासांची प्रवास योजना तयार करा. सुरक्षित मार्ग, PFZ संधी, हवामान, लाट आणि जिओफेन्स तपासण्यांचा समावेश करा.",
+};
+
+const buildVoyageQuery = (
+  language: string,
+  vessel: string,
+  location: string,
+  time: string,
+  duration: string | number
+) => {
+  const template = VOYAGE_QUERY_I18N[language] || VOYAGE_QUERY_I18N.en;
+  return template
+    .replace("{vessel}", vesselLabel(language, vessel))
+    .replace("{location}", location)
+    .replace("{time}", time)
+    .replace("{duration}", String(duration));
 };
 
 const UI_COPY: Record<string, Record<string, string>> = {
@@ -208,6 +306,25 @@ const PROMPT_COPY: Record<string, string[]> = {
 };
 
 const samplePrompts = (language: string) => PROMPT_COPY[language] || PROMPT_COPY.en;
+
+// Small radar-HUD copy for the Dashboard's live map card overlays — kept
+// separate from the bigger UI_COPY/TAB_COPY blocks since it's only three
+// short template lines, not full-page chrome.
+const HUD_COPY: Record<string, { range: string; sstSwell: string; wind: string; layerActive: string }> = {
+  en: { range: "RANGE: 50 NAUTICAL MILES", sstSwell: "SST Front: {sst}°C | Swell: {wave}m ({period}s)", wind: "Wind: {speed} km/h from {dir} ({deg}°)", layerActive: "Layer: {layer} Active" },
+  hi: { range: "सीमा: 50 समुद्री मील", sstSwell: "SST मोर्चा: {sst}°C | लहर: {wave}मी ({period}से)", wind: "हवा: {dir} ({deg}°) से {speed} किमी/घं", layerActive: "परत: {layer} सक्रिय" },
+  ta: { range: "வரம்பு: 50 நாட்டிகல் மைல்", sstSwell: "SST முகப்பு: {sst}°C | அலை: {wave}மீ ({period}வி)", wind: "காற்று: {dir} ({deg}°) இலிருந்து {speed} கிமீ/மணி", layerActive: "அடுக்கு: {layer} செயலில்" },
+  te: { range: "పరిధి: 50 నాటికల్ మైళ్లు", sstSwell: "SST ఫ్రంట్: {sst}°C | అల: {wave}మీ ({period}సె)", wind: "గాలి: {dir} ({deg}°) నుండి {speed} కి.మీ/గం", layerActive: "పొర: {layer} యాక్టివ్" },
+  ml: { range: "പരിധി: 50 നോട്ടിക്കൽ മൈൽ", sstSwell: "SST മുന്നണി: {sst}°C | തിരമാല: {wave}മീ ({period}സെ)", wind: "കാറ്റ്: {dir} ({deg}°) ൽ നിന്ന് {speed} കി.മീ/മ", layerActive: "ലെയർ: {layer} സജീവം" },
+  bn: { range: "পরিসীমা: ৫০ নটিক্যাল মাইল", sstSwell: "SST ফ্রন্ট: {sst}°C | ঢেউ: {wave}মি ({period}সে)", wind: "বাতাস: {dir} ({deg}°) থেকে {speed} কিমি/ঘ", layerActive: "স্তর: {layer} সক্রিয়" },
+  gu: { range: "રેન્જ: 50 નોટિકલ માઇલ", sstSwell: "SST ફ્રન્ટ: {sst}°C | મોજું: {wave}મી ({period}સે)", wind: "પવન: {dir} ({deg}°) થી {speed} કિમી/ક", layerActive: "લેયર: {layer} સક્રિય" },
+  mr: { range: "श्रेणी: 50 नॉटिकल मैल", sstSwell: "SST फ्रंट: {sst}°C | लाट: {wave}मी ({period}से)", wind: "वारा: {dir} ({deg}°) पासून {speed} किमी/ता", layerActive: "स्तर: {layer} सक्रिय" },
+};
+
+function hud(language: string, key: keyof (typeof HUD_COPY)["en"], vars: Record<string, string | number> = {}) {
+  const template = HUD_COPY[language]?.[key] ?? HUD_COPY.en[key];
+  return Object.entries(vars).reduce((text, [name, value]) => text.replace(`{${name}}`, String(value)), template);
+}
 
 
 export default function Home() {
@@ -457,13 +574,36 @@ export default function Home() {
     ]);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    // 45s: PFZ-triggering queries run an extra live grid search + a
+    // best-effort NOAA lookup on top of the marine/weather/geo calls, which
+    // can occasionally push a cold request past 30s.
+    const timeout = setTimeout(() => controller.abort(), 45000);
 
     try {
+      // The reply language must track what the user actually typed, not
+      // the workspace language dropdown — falling back to `selectedLanguage`
+      // here meant a plain English query got answered in Hindi/etc whenever
+      // the dropdown had been left on a regional language from an earlier
+      // message. Untagged (Latin-script) text defaults to English, since
+      // that's the honest reading of "the query's language" in that case.
+      const queryLanguage = detectQueryLanguage(finalQuery) ?? "en";
+      // Carry the last resolved location forward so a follow-up like
+      // "what about tomorrow morning?" (no location of its own) stays on
+      // the same place instead of the backend falling back to its default.
+      const previousLocation = orcaData?.location;
+      const context = previousLocation
+        ? {
+            previous_location: {
+              name: previousLocation.name,
+              latitude: previousLocation.latitude,
+              longitude: previousLocation.longitude,
+            },
+          }
+        : undefined;
       const res = await fetch("http://localhost:8000/api/orca", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: finalQuery, language: selectedLanguage }),
+        body: JSON.stringify({ query: finalQuery, language: queryLanguage, context }),
         signal: controller.signal,
       });
 
@@ -530,6 +670,8 @@ export default function Home() {
   const weather = orcaData?.agents?.weather;
   const geo = orcaData?.agents?.geospatial;
   const risk = orcaData?.agents?.risk;
+  const pfz = orcaData?.agents?.pfz;
+  const route = orcaData?.agents?.route;
   const location = orcaData?.location;
 
   const seaTemperature = marine?.sea_surface_temperature?.value ?? 29.3;
@@ -554,6 +696,23 @@ export default function Home() {
   const latitude = location?.latitude ?? 19.076;
   const longitude = location?.longitude ?? 72.8777;
   const geofenceStatus = geo?.status ?? "CLEAR EEZ WATERWAY";
+
+  // Shared map props, built once from live agent output and handed to
+  // every MarineMap instance (dashboard radar + the Marine Map workspace
+  // tab) so both stay in sync with the same query result.
+  const mapPfz =
+    pfz?.success && pfz?.nearest_zone
+      ? { nearestZone: pfz.nearest_zone, candidates: pfz.candidates ?? [] }
+      : null;
+  const mapGeo = {
+    restrictedZone: geo?.restricted_zone?.detected ? geo.restricted_zone.details : null,
+    mpaZone: geo?.marine_protected_area?.detected ? geo.marine_protected_area.details : null,
+    geofenceTriggered: geo?.geofence?.triggered ?? false,
+    geofenceDistanceKm: geo?.geofence?.distance_to_reference_km ?? null,
+  };
+  const mapRoute = route?.success
+    ? { waypoints: route.waypoints, hazardsAvoided: route.hazards_avoided }
+    : null;
 
   const latestOrcaMessage = chatHistory.filter((m) => m.role === "orca").slice(-1)[0];
 
@@ -831,7 +990,9 @@ export default function Home() {
             {/* 1. Sea Surface Temperature */}
             <MetricsCard
               title={t("seaTemperature") + " (SST)"}
-              value={`${seaTemperature} °C`}
+              value={seaTemperature}
+              unit=" °C"
+              decimals={1}
               subtitle="Open-Meteo & ISRO Earth Observation"
               icon={<Waves className="h-5 w-5 text-sky-400" />}
               badge={t("favourable")}
@@ -855,7 +1016,9 @@ export default function Home() {
             {/* 2. Wave Dynamics */}
             <MetricsCard
               title={t("waveHeight")}
-              value={`${waveHeight} m`}
+              value={waveHeight}
+              unit=" m"
+              decimals={2}
               subtitle={`Period ${wavePeriod}s • Direction ${waveDirection}°`}
               icon={<Activity className="h-5 w-5 text-blue-400" />}
               badge={waveHeight > 2.0 ? "MODERATE SWELL" : "FAVOURABLE"}
@@ -875,7 +1038,9 @@ export default function Home() {
             {/* 3. Wind Velocity (Copernicus L4) */}
             <MetricsCard
               title={t("windVelocity")}
-              value={`${windSpeed} km/h`}
+              value={windSpeed}
+              unit=" km/h"
+              decimals={2}
               subtitle={`Heading ${windDir} (${windDeg}°)`}
               icon={<Wind className="h-5 w-5 text-teal-400" />}
               badge="COPERNICUS L4"
@@ -898,7 +1063,9 @@ export default function Home() {
             {/* 4. Multi-Agent Operational Risk Index */}
             <MetricsCard
               title={t("safetyScore")}
-              value={`${safetyScore}/100`}
+              value={safetyScore}
+              unit="/100"
+              decimals={0}
               subtitle={`Risk: ${riskLevel} • Confidence: ${confidenceScore.toFixed(1)}%`}
               icon={<ShieldCheck className="h-5 w-5 text-white" />}
               badge={riskLevel === "LOW" ? t("safeToVenture") : t("caution")}
@@ -931,7 +1098,7 @@ export default function Home() {
           ====================================================== */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             {/* LEFT / CENTER: TACTICAL INTERACTIVE MAP & RADAR (7 COLS) */}
-            <div className="xl:col-span-7 flex flex-col rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg overflow-hidden panel-lift">
+            <div className="xl:col-span-7 min-w-0 flex flex-col rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg overflow-hidden panel-lift">
               {/* Radar Toolbar Header */}
               <div className="flex flex-wrap items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-900/70">
                 <div className="flex items-center gap-2.5">
@@ -969,101 +1136,39 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* RADAR CANVAS SCREEN */}
-              <div className="relative h-[440px] w-full overflow-hidden bg-[#070e1a] flex items-center justify-center">
-                <div className="three-d-ocean" aria-hidden="true">
-                  <div className="three-d-grid" />
-                  <div className="three-d-horizon" />
-                  <span className="three-d-star star-one" />
-                  <span className="three-d-star star-two" />
-                  <span className="three-d-star star-three" />
-                </div>
-                {/* Nautical Grid Lines */}
-                <div className="absolute inset-0 marine-grid opacity-35" />
-
-                {/* Concentric Range Rings */}
-                <div className="absolute h-80 w-80 rounded-full border border-slate-800/80" />
-                <div className="absolute h-56 w-56 rounded-full border border-slate-800/80" />
-                <div className="absolute h-32 w-32 rounded-full border border-slate-800/80" />
-                <div className="absolute h-full w-[1px] bg-slate-800/60" />
-                <div className="absolute w-full h-[1px] bg-slate-800/60" />
-
-                {/* Radar Sweep Line */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
-                  <div
-                    className="w-[440px] h-[440px] rounded-full animate-radar-sweep origin-center"
-                    style={{
-                      background:
-                        "conic-gradient(from 0deg at 50% 50%, rgba(14, 165, 233, 0.35) 0deg, rgba(14, 165, 233, 0) 50deg, transparent 360deg)",
-                    }}
-                  />
-                </div>
-
-                {/* Thermal SST simulation */}
-                {activeMapLayer === "thermal" && (
-                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-700/25 via-sky-600/15 to-amber-500/20 blur-2xl pointer-events-none" />
-                )}
-
-                {/* PFZ Potential Fishing Zone Hotspot */}
-                <div className="absolute left-[32%] top-[30%] group cursor-pointer">
-                  <div className="relative flex items-center justify-center">
-                    <span className="absolute h-16 w-16 rounded-full bg-emerald-500/20 animate-ping-subtle" />
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md border border-emerald-400 text-xs">
-                      <Fish className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <div className="absolute left-10 top-0 whitespace-nowrap bg-slate-900/95 border border-emerald-500/50 px-3 py-1.5 rounded-lg text-[11px] font-mono text-emerald-300 shadow-xl backdrop-blur">
-                    <p className="font-bold">INCOIS PFZ HOTSPOT #1</p>
-                    <p className="text-[10px] text-slate-400">SST Front: 29.1°C • High Pelagic Aggregation</p>
-                  </div>
-                </div>
-
-                {/* Center Vessel Marker */}
-                <div className="relative z-10 flex flex-col items-center group cursor-pointer">
-                  <div className="relative flex items-center justify-center">
-                    <span className="absolute h-10 w-10 rounded-full bg-sky-400/20 animate-ping" />
-                    <div className="h-6 w-6 rounded-full bg-sky-500 text-white border-2 border-white flex items-center justify-center shadow-lg">
-                      <Anchor className="h-3.5 w-3.5" />
-                    </div>
-                  </div>
-                  <div className="mt-2 bg-slate-900/90 border border-slate-700 px-2.5 py-1 rounded-md text-[10px] font-mono text-slate-200 backdrop-blur shadow-md">
-                    {locationName}
-                  </div>
-                </div>
-
-                {/* IMBL / Geofence Warning Marker */}
-                <div className="absolute right-[22%] top-[25%] group cursor-pointer">
-                  <div className="relative flex items-center justify-center">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-600 text-white shadow-md border border-amber-400 text-xs">
-                      <Shield className="h-3.5 w-3.5" />
-                    </div>
-                  </div>
-                  <div className="absolute right-9 top-0 whitespace-nowrap bg-slate-900/95 border border-amber-500/50 px-3 py-1.5 rounded-lg text-[10px] font-mono text-amber-300 shadow-xl backdrop-blur">
-                    <p className="font-bold">OPERATIONAL GEOFENCE BUFFER</p>
-                    <p className="text-[10px] text-slate-400">Buffer: 25km • Unrestricted Indian EEZ</p>
-                  </div>
-                </div>
+              {/* MARINE MAP (real tiles + live agent data) */}
+              <div className="relative h-[440px] w-full overflow-hidden bg-[#070e1a]">
+                <MarineMap
+                  center={{ lat: latitude, lon: longitude, name: locationName }}
+                  activeLayer={activeMapLayer}
+                  language={selectedLanguage}
+                  marine={{ sst: seaTemperature, waveHeight }}
+                  weather={{ windSpeed, windDeg, windDir }}
+                  pfz={mapPfz}
+                  geo={mapGeo}
+                  route={mapRoute}
+                />
 
                 {/* Bottom Left Radar Telemetry HUD */}
-                <div className="absolute bottom-3 left-3 bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl backdrop-blur text-[10px] font-mono text-slate-300 space-y-0.5">
+                <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl backdrop-blur text-[10px] font-mono text-slate-300 space-y-0.5">
                   <div className="flex items-center gap-1.5 text-sky-400 font-semibold">
                     <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-                    <span>RANGE: 50 NAUTICAL MILES</span>
+                    <span>{hud(selectedLanguage, "range")}</span>
                   </div>
-                  <div>SST Front: {seaTemperature}°C | Swell: {waveHeight}m ({wavePeriod}s)</div>
-                  <div>Wind: {windSpeed} km/h from {windDir} ({windDeg}°)</div>
+                  <div>{hud(selectedLanguage, "sstSwell", { sst: seaTemperature, wave: waveHeight, period: wavePeriod })}</div>
+                  <div>{hud(selectedLanguage, "wind", { speed: windSpeed, dir: windDir, deg: windDeg })}</div>
                 </div>
 
                 {/* Bottom Right Layer Status */}
-                <div className="absolute bottom-3 right-3 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg backdrop-blur text-[10px] font-mono text-slate-300 flex items-center gap-2">
+                <div className="pointer-events-none absolute bottom-3 right-3 z-[1000] bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg backdrop-blur text-[10px] font-mono text-slate-300 flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span>Layer: {activeMapLayer.toUpperCase()} Active</span>
+                  <span>{hud(selectedLanguage, "layerActive", { layer: activeMapLayer.toUpperCase() })}</span>
                 </div>
               </div>
             </div>
 
             {/* RIGHT: AI CONVERSATIONAL REASONING TERMINAL (5 COLS) */}
-            <div className="xl:col-span-5 flex flex-col h-[520px] rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg overflow-hidden panel-lift">
+            <div className="xl:col-span-5 min-w-0 flex flex-col h-[520px] rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg overflow-hidden panel-lift">
               {/* Terminal Header */}
               <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-900/70">
                 <div className="flex items-center gap-3">
@@ -1276,17 +1381,24 @@ export default function Home() {
           <TabWorkspace
             activeTab={activeTab}
             locationName={locationName}
+            latitude={latitude}
+            longitude={longitude}
             seaTemperature={seaTemperature}
             waveHeight={waveHeight}
             wavePeriod={wavePeriod}
             windSpeed={windSpeed}
             windDir={windDir}
+            windDeg={windDeg}
             safetyScore={safetyScore}
             riskLevel={riskLevel}
             geofenceStatus={geofenceStatus}
             confidenceScore={confidenceScore}
             activeMapLayer={activeMapLayer}
             setActiveMapLayer={setActiveMapLayer}
+            mapPfz={mapPfz}
+            mapGeo={mapGeo}
+            mapRoute={mapRoute}
+            language={selectedLanguage}
             onAsk={askORCA}
             onDashboard={() => setActiveTab("Dashboard")}
             t={t}
@@ -1317,8 +1429,8 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" onClick={() => setVoyagePlannerOpen(false)}>
           <div className="settings-panel w-full max-w-lg overflow-hidden rounded-3xl border border-slate-700 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="settings-hero px-6 py-6"><div className="flex items-start justify-between"><div className="flex items-center gap-3"><div className="settings-icon-grid flex h-11 w-11 items-center justify-center rounded-2xl text-white"><Compass className="h-5 w-5" /></div><div><p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-100">Departure assistant</p><h2 className="mt-1 text-lg font-bold text-white">{u("voyage")}</h2></div></div><button onClick={() => setVoyagePlannerOpen(false)} className="rounded-xl bg-white/10 p-2 text-white hover:bg-white/20"><X className="h-4 w-4" /></button></div></div>
-            <form onSubmit={(event) => { event.preventDefault(); askORCA(`Create a voyage plan for a ${vesselType} departing ${locationName} at ${departureHour} for ${tripDuration} hours. Include safe route, PFZ opportunity, weather, swell and geofence checks.`); setVoyagePlannerOpen(false); }} className="space-y-5 p-6">
-              <label className="block"><span className="mb-2 block text-xs font-semibold text-slate-300">{u("vessel")}</span><select value={vesselType} onChange={(event) => setVesselType(event.target.value)} className="settings-input w-full rounded-xl border px-3 py-2.5 text-sm outline-none"><option>Artisanal fishing boat</option><option>Mechanised fishing vessel</option><option>Small research vessel</option></select></label>
+            <form onSubmit={(event) => { event.preventDefault(); askORCA(buildVoyageQuery(selectedLanguage, vesselType, locationName, departureHour, tripDuration)); setVoyagePlannerOpen(false); }} className="space-y-5 p-6">
+              <label className="block"><span className="mb-2 block text-xs font-semibold text-slate-300">{u("vessel")}</span><select value={vesselType} onChange={(event) => setVesselType(event.target.value)} className="settings-input w-full rounded-xl border px-3 py-2.5 text-sm outline-none">{VESSEL_TYPE_VALUES.map((value) => <option key={value} value={value}>{vesselLabel(selectedLanguage, value)}</option>)}</select></label>
               <div className="grid grid-cols-2 gap-4"><label className="block"><span className="mb-2 block text-xs font-semibold text-slate-300">{u("departure")}</span><input type="time" value={departureHour} onChange={(event) => setDepartureHour(event.target.value)} className="settings-input w-full rounded-xl border px-3 py-2.5 text-sm outline-none" /></label><label className="block"><span className="mb-2 block text-xs font-semibold text-slate-300">{u("duration")}</span><input type="number" min="1" max="72" value={tripDuration} onChange={(event) => setTripDuration(event.target.value)} className="settings-input w-full rounded-xl border px-3 py-2.5 text-sm outline-none" /></label></div>
               <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-[11px] leading-relaxed text-slate-300">ORCA will combine PFZ signals, forecast conditions, vessel context and geofence checks into one departure briefing.</div>
               <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"><Sparkles className="h-4 w-4" /> {u("generate")}</button>
@@ -1506,9 +1618,56 @@ export default function Home() {
 // =========================================================
 // POLISHED ENTERPRISE METRIC CARD COMPONENT
 // =========================================================
+// Counts from the previous displayed value to the new one instead of
+// snapping — a live telemetry number that just jump-cuts on every refresh
+// reads as static/dead. Skips straight to the final value under
+// prefers-reduced-motion, per that media query rather than a fixed
+// animate/skip toggle.
+function AnimatedNumber({ value, decimals = 1 }: { value: number; decimals?: number }) {
+  const [display, setDisplay] = useState(value);
+  const fromRef = useRef(value);
+
+  useEffect(() => {
+    const prefersReducedMotion =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (prefersReducedMotion || !Number.isFinite(value)) {
+      setDisplay(value);
+      fromRef.current = value;
+      return;
+    }
+
+    const from = fromRef.current;
+    const to = value;
+    if (from === to) return;
+
+    const duration = 650;
+    const start = performance.now();
+    let frame: number;
+
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(from + (to - from) * eased);
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = to;
+      }
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return <>{display.toFixed(decimals)}</>;
+}
+
 function MetricsCard({
   title,
   value,
+  unit,
+  decimals = 1,
   subtitle,
   icon,
   badge,
@@ -1516,7 +1675,9 @@ function MetricsCard({
   footer,
 }: {
   title: string;
-  value: string;
+  value: number;
+  unit: string;
+  decimals?: number;
   subtitle: string;
   icon: ReactNode;
   badge: string;
@@ -1524,7 +1685,7 @@ function MetricsCard({
   footer?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-[#0b1322] p-5 shadow-sm hover:border-slate-700 transition duration-200 flex flex-col justify-between metric-card">
+    <div className="rounded-2xl border border-slate-800 bg-[#0b1322] p-5 shadow-sm hover:border-slate-700 hover:-translate-y-0.5 hover:shadow-lg transition duration-200 flex flex-col justify-between metric-card">
       <div>
         <div className="flex items-start justify-between">
           <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">{icon}</div>
@@ -1535,7 +1696,10 @@ function MetricsCard({
 
         <div className="mt-4">
           <p className="text-[11px] text-slate-400 font-medium tracking-wide uppercase">{title}</p>
-          <p className="text-2xl font-bold text-white tracking-tight mt-0.5">{value}</p>
+          <p className="text-2xl font-bold text-white tracking-tight mt-0.5 tabular-nums">
+            <AnimatedNumber value={value} decimals={decimals} />
+            {unit}
+          </p>
           <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
         </div>
       </div>
@@ -1600,17 +1764,24 @@ function AgentFlowNode({
 function TabWorkspace({
   activeTab,
   locationName,
+  latitude,
+  longitude,
   seaTemperature,
   waveHeight,
   wavePeriod,
   windSpeed,
   windDir,
+  windDeg,
   safetyScore,
   riskLevel,
   geofenceStatus,
   confidenceScore,
   activeMapLayer,
   setActiveMapLayer,
+  mapPfz,
+  mapGeo,
+  mapRoute,
+  language,
   onAsk,
   onDashboard,
   t,
@@ -1619,17 +1790,24 @@ function TabWorkspace({
 }: {
   activeTab: "Marine Map" | "PFZ Fishery" | "Weather & Swell" | "Safety & Geofence" | "Agent Pipeline";
   locationName: string;
+  latitude: number;
+  longitude: number;
   seaTemperature: number;
   waveHeight: number;
   wavePeriod: number;
   windSpeed: number;
   windDir: string;
+  windDeg: number;
   safetyScore: number;
   riskLevel: string;
   geofenceStatus: string;
   confidenceScore: number;
   activeMapLayer: "bathymetry" | "thermal" | "wind" | "pfz" | "geofence";
   setActiveMapLayer: (layer: "bathymetry" | "thermal" | "wind" | "pfz" | "geofence") => void;
+  mapPfz: MarineMapProps["pfz"];
+  mapGeo: MarineMapProps["geo"];
+  mapRoute: MarineMapProps["route"];
+  language: string;
   onAsk: (question?: string) => void;
   onDashboard: () => void;
   t: (key: string) => string;
@@ -1682,6 +1860,15 @@ function TabWorkspace({
     bathymetry: [tw("bathymetry"), tw("bathymetryDesc")],
   } as const;
 
+  // These "Ask ORCA" buttons only fire the query (onAsk) — the response
+  // lands in chatHistory, which only the Dashboard tab renders. Without
+  // switching back to Dashboard the click looked like it did nothing,
+  // since there's nowhere on this tab to actually see the reply appear.
+  const askAndShow = (question?: string) => {
+    onAsk(question);
+    onDashboard();
+  };
+
   return (
     <div className="flex-1 space-y-6 p-6 page-reveal">
       <section className="overflow-hidden rounded-3xl border border-slate-800 bg-[#0b1322] shadow-lg">
@@ -1701,26 +1888,34 @@ function TabWorkspace({
 
       {activeTab === "Marine Map" && (
         <section className="grid gap-6 xl:grid-cols-[1.45fr_0.55fr]">
-          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/70 px-5 py-4">
               <div><p className="text-xs font-bold uppercase tracking-wider text-white">{locationName}</p><p className="mt-1 text-[11px] font-mono text-slate-400">{tw("mapLayerCaption")}</p></div>
               <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-mono text-emerald-400">{u("live")}</span>
             </div>
-            <div className="relative min-h-[390px] overflow-hidden bg-[#070e1a] p-5">
-              <div className="three-d-ocean" aria-hidden="true"><div className="three-d-grid" /><div className="three-d-horizon" /><span className="three-d-star star-one" /><span className="three-d-star star-two" /></div>
-              <div className="relative grid h-full min-h-[350px] place-items-center"><div className="flex h-48 w-48 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/5 shadow-[0_0_70px_rgba(34,211,238,0.18)]"><div className="flex h-28 w-28 items-center justify-center rounded-full border border-cyan-300/40"><Anchor className="h-8 w-8 text-cyan-100" /></div></div></div>
-              <div className="absolute bottom-5 left-5 rounded-xl border border-white/15 bg-slate-950/65 p-3 backdrop-blur"><p className="text-[10px] font-mono text-cyan-300">{layerInfo[activeMapLayer][0].toUpperCase()}</p><p className="mt-1 text-xs text-slate-200">{layerInfo[activeMapLayer][1]}</p></div>
+            <div className="relative h-[390px] overflow-hidden bg-[#070e1a]">
+              <MarineMap
+                center={{ lat: latitude, lon: longitude, name: locationName }}
+                activeLayer={activeMapLayer}
+                language={language}
+                marine={{ sst: seaTemperature, waveHeight }}
+                weather={{ windSpeed, windDeg, windDir }}
+                pfz={mapPfz}
+                geo={mapGeo}
+                route={mapRoute}
+              />
+              <div className="pointer-events-none absolute bottom-5 left-5 z-[1000] rounded-xl border border-white/15 bg-slate-950/65 p-3 backdrop-blur"><p className="text-[10px] font-mono text-cyan-300">{layerInfo[activeMapLayer][0].toUpperCase()}</p><p className="mt-1 text-xs text-slate-200">{layerInfo[activeMapLayer][1]}</p></div>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-[#0b1322] p-4 shadow-lg"><p className="text-[11px] font-mono uppercase tracking-wider text-slate-400">{u("layers")}</p><div className="mt-3 space-y-2">{(["pfz", "thermal", "wind", "geofence", "bathymetry"] as const).map((layer) => <button key={layer} onClick={() => setActiveMapLayer(layer)} className={`flex w-full items-center justify-between rounded-xl border p-3 text-left text-xs transition ${activeMapLayer === layer ? "border-sky-400/50 bg-sky-500/10 text-sky-300" : "border-slate-800 bg-slate-900/70 text-slate-300 hover:border-slate-700"}`}><span>{layerInfo[layer][0]}</span>{activeMapLayer === layer && <CheckCircle2 className="h-4 w-4" />}</button>)}</div><button onClick={() => onAsk(`${tw("mapAskLayer")}: ${layerInfo[activeMapLayer][0]} — ${locationName}`)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-3 py-2.5 text-xs font-semibold text-white hover:bg-sky-400"><Sparkles className="h-4 w-4" /> {tw("mapAskLayer")}</button></div>
+          <div className="rounded-2xl border border-slate-800 bg-[#0b1322] p-4 shadow-lg"><p className="text-[11px] font-mono uppercase tracking-wider text-slate-400">{u("layers")}</p><div className="mt-3 space-y-2">{(["pfz", "thermal", "wind", "geofence", "bathymetry"] as const).map((layer) => <button key={layer} onClick={() => setActiveMapLayer(layer)} className={`flex w-full items-center justify-between rounded-xl border p-3 text-left text-xs transition ${activeMapLayer === layer ? "border-sky-400/50 bg-sky-500/10 text-sky-300" : "border-slate-800 bg-slate-900/70 text-slate-300 hover:border-slate-700"}`}><span>{layerInfo[layer][0]}</span>{activeMapLayer === layer && <CheckCircle2 className="h-4 w-4" />}</button>)}</div><button onClick={() => askAndShow(`${tw("mapAskLayer")}: ${layerInfo[activeMapLayer][0]} — ${locationName}`)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-3 py-2.5 text-xs font-semibold text-white hover:bg-sky-400"><Sparkles className="h-4 w-4" /> {tw("mapAskLayer")}</button></div>
         </section>
       )}
 
-      {activeTab === "PFZ Fishery" && <section className="grid gap-4 md:grid-cols-3"><WorkspaceStat icon={<Fish className="h-5 w-5 text-emerald-400" />} label={tw("nearestPfz")} value="18 NM south-west" detail={tw("highPelagicAggregation")} /><WorkspaceStat icon={<Waves className="h-5 w-5 text-sky-400" />} label={tw("sstFront")} value={`${seaTemperature}°C`} detail={tw("insideFishComfortZone")} /><WorkspaceStat icon={<Navigation className="h-5 w-5 text-amber-400" />} label={tw("recommendedAction")} value={tw("planDeparture")} detail={tw("reviewSafetyBriefingFirst")} /><ActionPanel title={tw("pfzBriefingTitle")} description={tw("pfzBriefingDesc")} action={tw("generatePfzAdvisory")} onClick={() => onAsk(`${tw("generatePfzAdvisory")} — ${locationName}`)} /></section>}
+      {activeTab === "PFZ Fishery" && <section className="grid gap-4 md:grid-cols-3"><WorkspaceStat icon={<Fish className="h-5 w-5 text-emerald-400" />} label={tw("nearestPfz")} value="18 NM south-west" detail={tw("highPelagicAggregation")} /><WorkspaceStat icon={<Waves className="h-5 w-5 text-sky-400" />} label={tw("sstFront")} value={`${seaTemperature}°C`} detail={tw("insideFishComfortZone")} /><WorkspaceStat icon={<Navigation className="h-5 w-5 text-amber-400" />} label={tw("recommendedAction")} value={tw("planDeparture")} detail={tw("reviewSafetyBriefingFirst")} /><ActionPanel title={tw("pfzBriefingTitle")} description={tw("pfzBriefingDesc")} action={tw("generatePfzAdvisory")} onClick={() => askAndShow(`${tw("generatePfzAdvisory")} — ${locationName}`)} /></section>}
 
-      {activeTab === "Weather & Swell" && <section className="grid gap-4 md:grid-cols-3"><WorkspaceStat icon={<Wind className="h-5 w-5 text-teal-400" />} label={tw("windLabel")} value={`${windSpeed} km/h`} detail={`${tw("fromPrefix")} ${windDir}`} /><WorkspaceStat icon={<Activity className="h-5 w-5 text-violet-400" />} label={tw("waveHeightLabel")} value={`${waveHeight} m`} detail={`${tw("swellPeriodPrefix")} ${wavePeriod}s`} /><WorkspaceStat icon={<ShieldCheck className="h-5 w-5 text-emerald-400" />} label={tw("ventureStatus")} value={riskLevel === "LOW" ? t("favourable") : t("caution")} detail={tw("basedOnCurrentModel")} /><ActionPanel title={tw("departureWeatherCheckTitle")} description={tw("departureWeatherCheckDesc")} action={tw("checkDepartureConditions")} onClick={() => onAsk(`${tw("checkDepartureConditions")} — ${locationName}`)} /></section>}
+      {activeTab === "Weather & Swell" && <section className="grid gap-4 md:grid-cols-3"><WorkspaceStat icon={<Wind className="h-5 w-5 text-teal-400" />} label={tw("windLabel")} value={`${windSpeed} km/h`} detail={`${tw("fromPrefix")} ${windDir}`} /><WorkspaceStat icon={<Activity className="h-5 w-5 text-violet-400" />} label={tw("waveHeightLabel")} value={`${waveHeight} m`} detail={`${tw("swellPeriodPrefix")} ${wavePeriod}s`} /><WorkspaceStat icon={<ShieldCheck className="h-5 w-5 text-emerald-400" />} label={tw("ventureStatus")} value={riskLevel === "LOW" ? t("favourable") : t("caution")} detail={tw("basedOnCurrentModel")} /><ActionPanel title={tw("departureWeatherCheckTitle")} description={tw("departureWeatherCheckDesc")} action={tw("checkDepartureConditions")} onClick={() => askAndShow(`${tw("checkDepartureConditions")} — ${locationName}`)} /></section>}
 
-      {activeTab === "Safety & Geofence" && <section className="grid gap-4 md:grid-cols-3"><WorkspaceStat icon={<ShieldCheck className="h-5 w-5 text-emerald-400" />} label={t("safetyScore")} value={`${safetyScore}/100`} detail={`${tw("currentRiskPrefix")}: ${riskLevel}`} /><WorkspaceStat icon={<Shield className="h-5 w-5 text-amber-400" />} label={tw("geofenceBufferLabel")} value="25 km" detail={tw("boundaryMonitoringEnabled")} /><WorkspaceStat icon={<Radio className="h-5 w-5 text-sky-400" />} label={tw("alertFeedLabel")} value={tw("monitoringLabel")} detail={tw("weatherAndBoundaryUpdates")} /><ActionPanel title={tw("safetyBriefingTitle")} description={tw("safetyBriefingDesc")} action={tw("runSafetyAssessment")} onClick={() => onAsk(`${tw("runSafetyAssessment")} — ${locationName}`)} /></section>}
+      {activeTab === "Safety & Geofence" && <section className="grid gap-4 md:grid-cols-3"><WorkspaceStat icon={<ShieldCheck className="h-5 w-5 text-emerald-400" />} label={t("safetyScore")} value={`${safetyScore}/100`} detail={`${tw("currentRiskPrefix")}: ${riskLevel}`} /><WorkspaceStat icon={<Shield className="h-5 w-5 text-amber-400" />} label={tw("geofenceBufferLabel")} value="25 km" detail={tw("boundaryMonitoringEnabled")} /><WorkspaceStat icon={<Radio className="h-5 w-5 text-sky-400" />} label={tw("alertFeedLabel")} value={tw("monitoringLabel")} detail={tw("weatherAndBoundaryUpdates")} /><ActionPanel title={tw("safetyBriefingTitle")} description={tw("safetyBriefingDesc")} action={tw("runSafetyAssessment")} onClick={() => askAndShow(`${tw("runSafetyAssessment")} — ${locationName}`)} /></section>}
 
       {activeTab === "Agent Pipeline" && (
         <section className="rounded-2xl border border-slate-800 bg-[#0b1322] p-5 shadow-lg">
@@ -1730,7 +1925,7 @@ function TabWorkspace({
               <p className="mt-1 text-xs text-slate-400">{tw("eachAgentContributes")}</p>
             </div>
             <button
-              onClick={() => onAsk(`${tw("refreshPipeline")} — ${locationName}`)}
+              onClick={() => askAndShow(`${tw("refreshPipeline")} — ${locationName}`)}
               className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-400"
             >
               {tw("refreshPipeline")}
