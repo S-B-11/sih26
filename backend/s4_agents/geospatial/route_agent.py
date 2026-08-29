@@ -2,8 +2,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import math
 import requests
 
-from agents.geo_agent import calculate_distance, analyze_location
-from agents.marine_agent import (
+from s4_agents.geospatial.geo_agent import calculate_distance, analyze_location
+from s4_agents.marine.marine_agent import (
     MARINE_API_URL,
     _normalize_time,
     _select_forecast_index,

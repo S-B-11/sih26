@@ -2,14 +2,14 @@ from typing import Dict, List, Optional, Union
 import math
 import requests
 
-from agents.marine_agent import (
+from s4_agents.marine.marine_agent import (
     MARINE_API_URL,
     _normalize_time,
     _select_forecast_index,
     _get_value,
 )
-from agents.geo_agent import calculate_distance
-from agents.weather_agent import direction_name
+from s4_agents.geospatial.geo_agent import calculate_distance
+from s4_agents.weather.weather_agent import direction_name
 
 
 # =========================================================

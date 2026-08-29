@@ -4,16 +4,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from agents.marine_agent import analyze_marine_conditions
-from agents.weather_agent import weather_agent
-from agents.planner import plan_query
-from agents.geo_agent import analyze_location, INDIAN_MPA_ZONES, INDIAN_RESTRICTED_ZONES
-from agents.risk_agent import calculate_risk
-from agents.synthesis_agent import synthesize_response
-from agents.location_agent import resolve_location
-from agents.pfz_agent import find_potential_fishing_zone
-from agents.route_agent import plan_safe_route
-from agents.wind_grid_agent import fetch_wind_grid
+from s4_agents.marine.marine_agent import analyze_marine_conditions
+from s4_agents.weather.weather_agent import weather_agent
+from s3_planner.planner import plan_query
+from s4_agents.geospatial.geo_agent import analyze_location, INDIAN_MPA_ZONES, INDIAN_RESTRICTED_ZONES
+from s4_agents.risk.risk_agent import calculate_risk
+from s5_synthesis.synthesis_agent import synthesize_response
+from s4_agents.geospatial.location_agent import resolve_location
+from s4_agents.marine.pfz_agent import find_potential_fishing_zone
+from s4_agents.geospatial.route_agent import plan_safe_route
+from s4_agents.weather.wind_grid_agent import fetch_wind_grid
 
 
 # =========================================================

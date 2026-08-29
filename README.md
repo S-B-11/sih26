@@ -20,17 +20,21 @@ sih26-main/
 │   │   └── api/chat/route.ts      — Chat API route
 │   └── package.json
 │
-├── backend/                      ← Python 3.11+ / FastAPI multi-agent API
+├── backend/                      ← Python 3.11+ / FastAPI, foldered by workflow stage
 │   ├── main.py                    — FastAPI app & routes (:8000)
-│   ├── agents/
-│   │   ├── planner.py             — Query planner/orchestrator
-│   │   ├── location_agent.py      — Location resolution
-│   │   ├── marine_agent.py        — SST / marine conditions
-│   │   ├── weather_agent.py       — Weather & wind
-│   │   ├── geo_agent.py           — Geospatial / geofencing
-│   │   ├── risk_agent.py          — Composite risk scoring
-│   │   └── synthesis_agent.py     — Final response synthesis
-│   ├── marine_data/               — Cached NetCDF ocean/wind datasets
+│   ├── s1_query/                  — 1. User query (schemas; today inline in main.py)
+│   ├── s2_language/               — 2. Language detection & translation (not yet built)
+│   ├── s3_planner/                — 3. Planner / orchestrator
+│   ├── s4_agents/                 — 4. Collaborative specialized agents
+│   │   ├── marine/                —   4.1 SST, chlorophyll, PFZ
+│   │   ├── weather/               —   4.2 forecast, wind, wind grid
+│   │   ├── geospatial/            —   4.3 geofencing, location, routing
+│   │   └── risk/                  —   4.4 composite safety score
+│   ├── s5_synthesis/              — 5. Synthesis / aggregator
+│   ├── s6_response/               — 6. Response shaping (not yet built)
+│   ├── s7_alerting/               — 7. Proactive alerts (not yet built)
+│   ├── s8_knowledge/              — 8. Conversation & knowledge store (not yet built)
+│   ├── data_sources/              — Cached datasets (Copernicus NetCDF)
 │   └── requirements.txt
 │
 ├── database/                     ← (legacy MongoDB layer, not used by the Python backend — pending cleanup)

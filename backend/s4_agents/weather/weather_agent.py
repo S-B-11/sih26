@@ -44,9 +44,10 @@ import xarray as xr
 # CONFIGURATION
 # ============================================================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# backend/ — three levels up from s4_agents/weather/weather_agent.py.
+BASE_DIR = Path(__file__).resolve().parents[2]
 
-MARINE_DATA_DIR = BASE_DIR / "marine_data"
+MARINE_DATA_DIR = BASE_DIR / "data_sources" / "marine_data"
 
 COPERNICUS_DATASET_PREFIX = (
     "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H"
