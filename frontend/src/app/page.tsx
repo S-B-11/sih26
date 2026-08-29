@@ -1335,8 +1335,11 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* MARINE MAP (real tiles + live agent data) */}
-              <div className="relative h-[440px] w-full overflow-hidden bg-[#070e1a]">
+              {/* MARINE MAP (real tiles + live agent data).
+                  flex-1 rather than a fixed height: the chat panel beside it
+                  is taller, and the grid stretches both cards to match, which
+                  left a dead strip under a fixed-height map. */}
+              <div className="relative flex-1 min-h-[440px] w-full overflow-hidden bg-[#070e1a]">
                 <MarineMap
                   center={{ lat: latitude, lon: longitude, name: locationName }}
                   activeLayer={activeMapLayer}
@@ -1348,20 +1351,24 @@ export default function Home() {
                   route={mapRoute}
                 />
 
-                {/* Bottom Left Radar Telemetry HUD */}
-                <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl backdrop-blur text-[10px] font-mono text-slate-300 space-y-0.5">
-                  <div className="flex items-center gap-1.5 text-sky-400 font-semibold">
-                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-                    <span>{hud(selectedLanguage, "range")}</span>
+                {/* Bottom-left status stack: telemetry HUD + active layer.
+                    Both live in one corner so the bottom-right stays clear
+                    for the scale bar and attribution, the way a general-
+                    purpose map lays them out. */}
+                <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] flex flex-col items-start gap-2">
+                  <div className="bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl backdrop-blur text-[10px] font-mono text-slate-300 space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-sky-400 font-semibold">
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                      <span>{hud(selectedLanguage, "range")}</span>
+                    </div>
+                    <div>{hud(selectedLanguage, "sstSwell", { sst: seaTemperature, wave: waveHeight, period: wavePeriod })}</div>
+                    <div>{hud(selectedLanguage, "wind", { speed: windSpeed, dir: windDir, deg: windDeg })}</div>
                   </div>
-                  <div>{hud(selectedLanguage, "sstSwell", { sst: seaTemperature, wave: waveHeight, period: wavePeriod })}</div>
-                  <div>{hud(selectedLanguage, "wind", { speed: windSpeed, dir: windDir, deg: windDeg })}</div>
-                </div>
 
-                {/* Bottom Right Layer Status */}
-                <div className="pointer-events-none absolute bottom-3 right-3 z-[1000] bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg backdrop-blur text-[10px] font-mono text-slate-300 flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span>{hud(selectedLanguage, "layerActive", { layer: activeMapLayer.toUpperCase() })}</span>
+                  <div className="bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg backdrop-blur text-[10px] font-mono text-slate-300 flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    <span>{hud(selectedLanguage, "layerActive", { layer: activeMapLayer.toUpperCase() })}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2216,12 +2223,14 @@ function TabWorkspace({
 
       {activeTab === "Marine Map" && (
         <section className="grid gap-6 xl:grid-cols-[1.45fr_0.55fr]">
-          <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg">
+          <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/70 px-5 py-4">
               <div><p className="text-xs font-bold uppercase tracking-wider text-white">{locationName}</p><p className="mt-1 text-[11px] font-mono text-slate-400">{tw("mapLayerCaption")}</p></div>
               <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-mono text-emerald-400">{u("live")}</span>
             </div>
-            <div className="relative h-[390px] overflow-hidden bg-[#070e1a]">
+            {/* flex-1 so the map grows to the card height the grid gives it,
+                rather than leaving a dead strip beneath a fixed height. */}
+            <div className="relative flex-1 min-h-[390px] overflow-hidden bg-[#070e1a]">
               <MarineMap
                 center={{ lat: latitude, lon: longitude, name: locationName }}
                 activeLayer={activeMapLayer}

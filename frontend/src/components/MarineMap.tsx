@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Rectangle, Circle, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -96,6 +96,11 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     directionLabel: "Direction",
     speedLabel: "Speed",
     noWindData: "No wind data",
+    backToSector: "Back to sector",
+    backToDevice: "My location",
+    locating: "Locating...",
+    geoUnsupported: "Location not supported by this browser.",
+    geoDenied: "Location unavailable. Needs permission and an HTTPS (or localhost) address.",
   },
   hi: {
     sstLabel: "समुद्र सतह तापमान: {sst}°C",
@@ -115,6 +120,11 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     directionLabel: "दिशा",
     speedLabel: "गति",
     noWindData: "हवा डेटा उपलब्ध नहीं",
+    backToSector: "क्षेत्र पर लौटें",
+    backToDevice: "मेरा स्थान",
+    locating: "स्थान खोजा जा रहा है...",
+    geoUnsupported: "यह ब्राउज़र स्थान समर्थित नहीं करता।",
+    geoDenied: "स्थान अनुपलब्ध। अनुमति और HTTPS (या localhost) पता आवश्यक है।",
   },
   ta: {
     sstLabel: "கடல் மேற்பரப்பு வெப்பநிலை: {sst}°C",
@@ -134,6 +144,11 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     directionLabel: "திசை",
     speedLabel: "வேகம்",
     noWindData: "காற்று தரவு இல்லை",
+    backToSector: "பகுதிக்குத் திரும்பு",
+    backToDevice: "என் இருப்பிடம்",
+    locating: "கண்டறியப்படுகிறது...",
+    geoUnsupported: "இந்த உலாவி இருப்பிடத்தை ஆதரிக்கவில்லை.",
+    geoDenied: "இருப்பிடம் கிடைக்கவில்லை. அனுமதியும் HTTPS (அல்லது localhost) முகவரியும் தேவை.",
   },
   te: {
     sstLabel: "సముద్ర ఉపరితల ఉష్ణోగ్రత: {sst}°C",
@@ -153,6 +168,11 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     directionLabel: "దిశ",
     speedLabel: "వేగం",
     noWindData: "గాలి డేటా లేదు",
+    backToSector: "ప్రాంతానికి తిరిగి",
+    backToDevice: "నా స్థానం",
+    locating: "కనుగొంటోంది...",
+    geoUnsupported: "ఈ బ్రౌజర్ స్థానాన్ని సపోర్ట్ చేయదు.",
+    geoDenied: "స్థానం అందుబాటులో లేదు. అనుమతి మరియు HTTPS (లేదా localhost) చిరునామా అవసరం.",
   },
   ml: {
     sstLabel: "സമുദ്ര ഉപരിതല താപനില: {sst}°C",
@@ -172,6 +192,11 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     directionLabel: "ദിശ",
     speedLabel: "വേഗത",
     noWindData: "കാറ്റ് ഡാറ്റ ലഭ്യമല്ല",
+    backToSector: "മേഖലയിലേക്ക് മടങ്ങുക",
+    backToDevice: "എന്റെ സ്ഥാനം",
+    locating: "കണ്ടെത്തുന്നു...",
+    geoUnsupported: "ഈ ബ്രൗസർ ലൊക്കേഷൻ പിന്തുണയ്ക്കുന്നില്ല.",
+    geoDenied: "ലൊക്കേഷൻ ലഭ്യമല്ല. അനുമതിയും HTTPS (അല്ലെങ്കിൽ localhost) വിലാസവും വേണം.",
   },
   bn: {
     sstLabel: "সমুদ্রপৃষ্ঠের তাপমাত্রা: {sst}°C",
@@ -191,6 +216,11 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     directionLabel: "দিক",
     speedLabel: "গতি",
     noWindData: "বাতাসের তথ্য নেই",
+    backToSector: "সেক্টরে ফিরুন",
+    backToDevice: "আমার অবস্থান",
+    locating: "খোঁজা হচ্ছে...",
+    geoUnsupported: "এই ব্রাউজার অবস্থান সমর্থন করে না।",
+    geoDenied: "অবস্থান পাওয়া যায়নি। অনুমতি ও HTTPS (বা localhost) ঠিকানা প্রয়োজন।",
   },
   gu: {
     sstLabel: "સમુદ્ર સપાટીનું તાપમાન: {sst}°C",
@@ -210,6 +240,11 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     directionLabel: "દિશા",
     speedLabel: "ઝડપ",
     noWindData: "પવન ડેટા ઉપલબ્ધ નથી",
+    backToSector: "વિસ્તાર પર પાછા",
+    backToDevice: "મારું સ્થાન",
+    locating: "શોધી રહ્યું છે...",
+    geoUnsupported: "આ બ્રાઉઝર સ્થાનને સમર્થન આપતું નથી.",
+    geoDenied: "સ્થાન અનુપલબ્ધ. પરવાનગી અને HTTPS (અથવા localhost) સરનામું જરૂરી છે.",
   },
   mr: {
     sstLabel: "समुद्र पृष्ठभागाचे तापमान: {sst}°C",
@@ -229,6 +264,11 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     directionLabel: "दिशा",
     speedLabel: "वेग",
     noWindData: "वाऱ्याचा डेटा उपलब्ध नाही",
+    backToSector: "क्षेत्राकडे परत",
+    backToDevice: "माझे स्थान",
+    locating: "शोधत आहे...",
+    geoUnsupported: "हा ब्राउझर स्थानाला समर्थन देत नाही.",
+    geoDenied: "स्थान अनुपलब्ध. परवानगी आणि HTTPS (किंवा localhost) पत्ता आवश्यक आहे.",
   },
 };
 
@@ -324,11 +364,20 @@ function useIsLightTheme() {
 // A distance scale bar reads as basic cartographic due-diligence on any
 // professional map — Leaflet ships one, but only as an imperative control,
 // not a react-leaflet component.
+//
+// Sits bottom-right: the dashboard's telemetry HUD occupies the bottom-left
+// corner and was covering the bar entirely.
 function ScaleControl() {
   const map = useMap();
 
   useEffect(() => {
-    const control = L.control.scale({ metric: true, imperial: false, position: "bottomleft" });
+    const control = L.control.scale({
+      metric: true,
+      // Google shows one bar, not a stacked metric/imperial pair.
+      imperial: false,
+      position: "bottomright",
+      maxWidth: 120,
+    });
     control.addTo(map);
     return () => {
       control.remove();
@@ -336,6 +385,83 @@ function ScaleControl() {
   }, [map]);
 
   return null;
+}
+
+// "Recentre" controls. Rendered as ordinary DOM inside the map container
+// rather than as Leaflet controls so they can be styled with the same
+// Tailwind vocabulary as the rest of the console; click/scroll propagation
+// has to be stopped by hand or the buttons would also pan and zoom the map
+// underneath them.
+function MapRecenterControls({
+  center,
+  language,
+}: {
+  center: { lat: number; lon: number; name: string };
+  language?: string;
+}) {
+  const map = useMap();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!wrapRef.current) return;
+    L.DomEvent.disableClickPropagation(wrapRef.current);
+    L.DomEvent.disableScrollPropagation(wrapRef.current);
+  }, []);
+
+  const backToSector = () => {
+    map.flyTo([center.lat, center.lon], 9, { duration: 0.6 });
+  };
+
+  const backToDevice = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoError(mt(language, "geoUnsupported"));
+      return;
+    }
+
+    setLocating(true);
+    setGeoError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        map.flyTo([pos.coords.latitude, pos.coords.longitude], 11, { duration: 0.8 });
+      },
+      () => {
+        setLocating(false);
+        // Browsers gate geolocation behind HTTPS (or localhost), so this
+        // is the expected path for anyone opening the console over a
+        // plain-HTTP LAN address rather than a real failure.
+        setGeoError(mt(language, "geoDenied"));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
+
+  return (
+    <div ref={wrapRef} className="orca-map-controls">
+      <button type="button" onClick={backToSector} className="orca-map-btn" title={mt(language, "backToSector")}>
+        <span className="orca-map-btn-icon" aria-hidden="true">◎</span>
+        <span className="orca-map-btn-label">{mt(language, "backToSector")}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={backToDevice}
+        disabled={locating}
+        className="orca-map-btn"
+        title={mt(language, "backToDevice")}
+      >
+        <span className={`orca-map-btn-icon ${locating ? "orca-map-btn-spin" : ""}`} aria-hidden="true">➤</span>
+        <span className="orca-map-btn-label">
+          {locating ? mt(language, "locating") : mt(language, "backToDevice")}
+        </span>
+      </button>
+
+      {geoError && <p className="orca-map-geo-error">{geoError}</p>}
+    </div>
+  );
 }
 
 // react-leaflet only reads `center`/`zoom` on first mount — re-panning
@@ -434,7 +560,10 @@ function WindVelocityLayer({ grid, language }: { grid: WindGridLayer[] | null; l
       displayValues: true,
       displayOptions: {
         velocityType: mt(language, "windLabel"),
-        position: "topright",
+        // Bottom-right, stacked above the scale bar: the top-right corner
+        // belongs to the recentre buttons, and this readout would sit
+        // underneath them.
+        position: "bottomright",
         emptyString: mt(language, "noWindData"),
         directionString: mt(language, "directionLabel"),
         speedString: mt(language, "speedLabel"),
@@ -442,10 +571,31 @@ function WindVelocityLayer({ grid, language }: { grid: WindGridLayer[] | null; l
         speedUnit: "k/h",
       },
       data: grid,
+      // Coastal Indian winds sit mostly in the 0-20 m/s band; keeping the
+      // ramp there uses the whole colour range instead of leaving every
+      // reading stuck at the cold end.
       minVelocity: 0,
       maxVelocity: 20,
-      velocityScale: 0.012,
-      colorScale: ["#22d3ee", "#38bdf8", "#a3e635", "#facc15", "#f97316", "#ef4444"],
+      // Particle tuning. The defaults draw a sparse, fast, hair-thin
+      // scatter that reads as noise at dashboard size; a denser, slower,
+      // slightly thicker field reads as an actual flow field.
+      velocityScale: 0.008,
+      particleMultiplier: 1 / 220,
+      particleAge: 70,
+      lineWidth: 1.6,
+      frameRate: 18,
+      // Perceptually ordered cool -> warm ramp, so "faster" is legible
+      // from the colour alone rather than only from particle motion.
+      colorScale: [
+        "#67e8f9",
+        "#38bdf8",
+        "#4ade80",
+        "#a3e635",
+        "#facc15",
+        "#fb923c",
+        "#f87171",
+        "#ef4444",
+      ],
     });
 
     layer.addTo(map);
@@ -489,6 +639,18 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
       zoom={9}
       scrollWheelZoom
       style={{ height: "100%", width: "100%" }}
+      // Web Mercator tiles repeat horizontally forever by default, so
+      // panning east/west used to reveal copy after copy of India. `noWrap`
+      // on the tile layers is what actually stops that — the map only ever
+      // requests tiles from a single world.
+      //
+      // A `maxBounds` of the whole world was tried here as well and had to
+      // come out: with it set, Leaflet refused to zoom out past ~z6 (the
+      // zoom-out button stayed enabled but the view snapped straight back),
+      // which is a worse bug than the one it was guarding against.
+      worldCopyJump={false}
+      minZoom={3}
+      maxZoom={17}
     >
       {isBathymetry ? (
         // Esri's public Ocean basemap — real depth-shaded bathymetric
@@ -497,6 +659,7 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
         <TileLayer
           attribution="Sources: Esri, GEBCO, NOAA, National Geographic, DeLorme, HERE, Geonames.org, and other contributors"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
+          noWrap
         />
       ) : (
         // CARTO's free basemaps (light_all/dark_all) started watermarking
@@ -511,10 +674,12 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           className={isLight ? undefined : "orca-tile-dark"}
+          noWrap
         />
       )}
 
       <ScaleControl />
+      <MapRecenterControls center={center} language={language} />
       <Recenter lat={center.lat} lon={center.lon} />
 
       <Marker position={[center.lat, center.lon]} icon={vesselIcon}>

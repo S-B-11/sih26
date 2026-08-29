@@ -669,6 +669,104 @@ button:not(:disabled) {
 .sector-fade-r { background: linear-gradient(to left, var(--chip-fade-bg), transparent); }
 .theme-light .sector-fade-l, .theme-light .sector-fade-r { --chip-fade-bg: rgba(255, 255, 255, 0.85); }
 
+/* Leaflet paints its own container background wherever there is no tile —
+   at the poles, past the date line, and for the moment before tiles load.
+   Its default is a light grey that showed up as dead bands above and below
+   the map. Painting it deep-ocean navy instead means those areas read as
+   part of the chart rather than as a rendering gap. */
+.leaflet-container {
+  background: #0a1526;
+}
+.theme-light .leaflet-container {
+  background: #dfeaf2;
+}
+
+/* Recentre controls (back to sector / my location). Stacked top-right,
+   clear of the zoom buttons top-left and the telemetry HUD bottom-left. */
+.orca-map-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.orca-map-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  font: 600 11px/1 "JetBrains Mono", ui-monospace, monospace;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32);
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.orca-map-btn:hover:not(:disabled) {
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #7dd3fc;
+}
+
+.orca-map-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.orca-map-btn-icon {
+  font-size: 12px;
+  line-height: 1;
+  color: #38bdf8;
+}
+
+.orca-map-btn-spin {
+  display: inline-block;
+  animation: orca-map-spin 1s linear infinite;
+}
+
+@keyframes orca-map-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.orca-map-geo-error {
+  max-width: 210px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(69, 26, 3, 0.9);
+  color: #fcd34d;
+  font: 10px/1.45 "JetBrains Mono", ui-monospace, monospace;
+  text-align: right;
+}
+
+.theme-light .orca-map-btn {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(15, 70, 80, 0.18);
+  color: #12363e;
+}
+
+.theme-light .orca-map-geo-error {
+  background: rgba(255, 251, 235, 0.96);
+  border-color: rgba(180, 83, 9, 0.28);
+  color: #92400e;
+}
+
+@media (max-width: 640px) {
+  /* Icons alone on narrow screens — two labelled buttons crowd the map. */
+  .orca-map-btn-label {
+    display: none;
+  }
+}
+
 /* leaflet-velocity's wind-readout control ships styled as a plain white
    Windy.com-style tag — restyle it to match the rest of the map's dark
    telemetry HUD badges instead of clashing against them. */
@@ -732,11 +830,33 @@ button:not(:disabled) {
   color: #67e8f9 !important;
 }
 
+/* Google-style scale bar: no filled box, just a hairline rule with ticks
+   at each end and the distance sitting above it. Leaflet's own markup is
+   a single element with a bottom+side border, so the ticks come free —
+   the work is removing the panel look it ships with. */
+.leaflet-control-scale {
+  margin: 0 10px 8px 0 !important;
+}
+
 .leaflet-control-scale-line {
-  background: rgba(15, 23, 42, 0.85) !important;
-  border-color: rgba(148, 163, 184, 0.4) !important;
-  color: #e2e8f0 !important;
-  font: 10px/1.4 "JetBrains Mono", ui-monospace, monospace !important;
+  background: transparent !important;
+  border: 2px solid rgba(226, 232, 240, 0.9) !important;
+  border-top: none !important;
+  border-radius: 0 !important;
+  padding: 0 4px 2px !important;
+  color: #f1f5f9 !important;
+  font: 600 10px/1.5 "JetBrains Mono", ui-monospace, monospace !important;
+  text-align: center;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 0 3px rgba(0, 0, 0, 0.7);
+  box-shadow: none !important;
+}
+
+.leaflet-control-scale-line:not(:first-child) {
+  border-top: 2px solid rgba(226, 232, 240, 0.9) !important;
+  border-bottom: none !important;
+  margin-top: 2px !important;
 }
 
 .theme-light .leaflet-popup-content-wrapper {
@@ -764,9 +884,12 @@ button:not(:disabled) {
   color: #0876a0 !important;
 }
 .theme-light .leaflet-control-scale-line {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-color: rgba(15, 70, 80, 0.3) !important;
-  color: #12363e !important;
+  background: transparent !important;
+  border-color: rgba(15, 32, 44, 0.85) !important;
+  color: #0f202c !important;
+  text-shadow:
+    0 1px 2px rgba(255, 255, 255, 0.9),
+    0 0 3px rgba(255, 255, 255, 0.8);
 }
 
 /* Fakes a dark basemap out of standard OpenStreetMap tiles (inverting the
