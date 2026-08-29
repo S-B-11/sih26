@@ -1,4 +1,4 @@
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import math
 
 
@@ -110,7 +110,11 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return round(earth_radius * c, 2)
 
 
-def analyze_location(latitude: float = 19.076, longitude: float = 72.8777) -> Dict[str, Any]:
+def analyze_location(
+    latitude: float = 19.076,
+    longitude: float = 72.8777,
+    is_marine: Optional[bool] = None,
+) -> Dict[str, Any]:
     """
     ORCA Geospatial Intelligence Agent (Layer 4)
     
@@ -165,6 +169,23 @@ def analyze_location(latitude: float = 19.076, longitude: float = 72.8777) -> Di
         zone_type = "Operational Geofence"
         severity = "LOW"
         recommendation = "Approaching active offshore installation / security corridor. Maintain minimum 1 nautical mile separation."
+    elif is_marine is False:
+        # Falling through to "clear EEZ waterway" here would report an
+        # inland position — a point hundreds of km from any coast — as open
+        # Indian ocean that is safe to navigate, purely because it sits
+        # inside no restricted polygon. Say plainly that no marine advisory
+        # applies instead.
+        status = "NON-MARINE POSITION"
+        zone_name = "Inland / non-marine location"
+        zone_type = "Not in a marine area"
+        severity = "NOT_APPLICABLE"
+        recommendation = (
+            "This position is not at sea, so no marine navigation advisory "
+            "applies. Marine forecast models return no data here. Select a "
+            "coastal sector or enter offshore coordinates for a sea-state "
+            "and fishing briefing."
+        )
+
     else:
         status = "CLEAR EEZ WATERWAY"
         zone_type = "Unrestricted Indian EEZ"
@@ -179,6 +200,9 @@ def analyze_location(latitude: float = 19.076, longitude: float = 72.8777) -> Di
             "type": zone_type,
             "severity": severity,
         },
+        # None when the caller did not tell us whether marine models return
+        # data here, so downstream can tell "unknown" from "known inland".
+        "is_marine": is_marine,
         "restricted_zone": {
             "detected": bool(matched_restricted),
             "details": matched_restricted,

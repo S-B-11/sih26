@@ -78,6 +78,30 @@ class QueryRequest(BaseModel):
 # ROOT ENDPOINT
 # =========================================================
 
+def _marine_data_available(marine: dict) -> bool:
+    """
+    Whether marine forecast models actually return readings for a position.
+
+    Open-Meteo's marine models cover water only, so an inland point comes
+    back with every field null. That is a reliable, already-fetched signal
+    that the position is not at sea — far cheaper than shipping a coastline
+    polygon just to answer "is this in the ocean?".
+    """
+
+    if not isinstance(marine, dict):
+        return False
+
+    for key in ("sea_surface_temperature", "wave_height"):
+
+        field = marine.get(key)
+
+        if isinstance(field, dict) and field.get("value") is not None:
+            return True
+
+    return False
+
+
+
 @app.get("/")
 def root():
 
@@ -621,7 +645,9 @@ def orca_query(request: QueryRequest):
 
             latitude,
 
-            longitude
+            longitude,
+
+            is_marine=_marine_data_available(marine)
         )
 
 

@@ -30,6 +30,30 @@ def calculate_risk(
     # INITIAL SCORE
     # =========================================================
 
+    # A position with no marine data cannot be scored. Every penalty below
+    # keys off a reading, so an inland point loses no points and scores a
+    # perfect 100 — a safety tool telling a landlocked user "safe to
+    # venture" with full confidence. Refuse to score instead.
+    if geo_data.get("is_marine") is False:
+
+        return {
+            "safety_score": None,
+            "risk_level": "NOT_APPLICABLE",
+            "confidence_score": 0.0,
+            "risk_reasons": [
+                "Position is not at sea; marine forecast models return no "
+                "data for it."
+            ],
+            "recommendation": (
+                "No marine risk assessment is possible for an inland "
+                "position. Choose a coastal sector or enter offshore "
+                "coordinates."
+            ),
+            "geofence_triggered": False,
+            "restricted_zone_detected": False,
+            "protected_area_detected": False,
+        }
+
     score = 100
     reasons = []
 
