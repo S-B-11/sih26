@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Rectangle, Circle, Polyline, us
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-velocity/dist/leaflet-velocity.css";
+import { API_BASE } from "../lib/api";
 
 // leaflet-velocity (github.com/onaci/leaflet-velocity) is a plain script
 // that attaches L.velocityLayer onto a *global* `L`, rather than an ES
@@ -360,7 +361,7 @@ function useAllZones() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("http://localhost:8000/api/zones")
+    fetch(`${API_BASE}/api/zones`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled || !data?.success) return;
@@ -398,7 +399,7 @@ function useWindGrid(active: boolean, lat: number, lon: number) {
 
     let cancelled = false;
 
-    fetch(`http://localhost:8000/api/wind-grid?latitude=${lat}&longitude=${lon}&span_deg=3.0`)
+    fetch(`${API_BASE}/api/wind-grid?latitude=${lat}&longitude=${lon}&span_deg=3.0`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled || !data?.success) return;

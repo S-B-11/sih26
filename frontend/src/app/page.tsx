@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Clock,
   Compass,
+  Crosshair,
   Cpu,
   Database,
   FileCheck,
@@ -22,6 +23,7 @@ import {
   Home as HomeIcon,
   Info,
   Map as MapIcon,
+  MapPin,
   Menu,
   MessageSquare,
   Mic,
@@ -30,6 +32,7 @@ import {
   Moon,
   Navigation,
   Radio,
+  Search,
   RefreshCw,
   Send,
   Settings,
@@ -47,6 +50,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { MarineMapProps } from "../components/MarineMap";
+import { API_BASE } from "../lib/api";
 
 // Leaflet touches `window` at module scope, so it can only run in the
 // browser — load it as a client-only chunk instead of importing
@@ -270,6 +274,97 @@ const COASTAL_SECTORS = [
   },
 ];
 
+// Named places the custom-location picker can jump to, spanning every
+// maritime state and union territory. Kept as a static list rather than
+// a geocoding API call so the picker still works offline during a demo
+// (any point not listed can still be entered as raw coordinates).
+type PickerLocation = { name: string; state: string; latitude: number; longitude: number };
+
+const INDIAN_LOCATIONS: PickerLocation[] = [
+  // Gujarat
+  { name: "Kandla (Deendayal Port)", state: "Gujarat", latitude: 23.0333, longitude: 70.2167 },
+  { name: "Okha", state: "Gujarat", latitude: 22.47, longitude: 69.07 },
+  { name: "Dwarka", state: "Gujarat", latitude: 22.2394, longitude: 68.9678 },
+  { name: "Jamnagar", state: "Gujarat", latitude: 22.4707, longitude: 70.0577 },
+  { name: "Porbandar", state: "Gujarat", latitude: 21.6417, longitude: 69.6293 },
+  { name: "Veraval", state: "Gujarat", latitude: 20.9159, longitude: 70.3629 },
+  { name: "Bhavnagar", state: "Gujarat", latitude: 21.7645, longitude: 72.1519 },
+  { name: "Hazira (Surat)", state: "Gujarat", latitude: 21.1, longitude: 72.65 },
+  { name: "Diu", state: "Daman & Diu", latitude: 20.7144, longitude: 70.9874 },
+  { name: "Daman", state: "Daman & Diu", latitude: 20.3974, longitude: 72.8328 },
+
+  // Maharashtra
+  { name: "Dahanu", state: "Maharashtra", latitude: 19.9679, longitude: 72.7411 },
+  { name: "Mumbai Harbour", state: "Maharashtra", latitude: 19.076, longitude: 72.8777 },
+  { name: "Nhava Sheva (JNPT)", state: "Maharashtra", latitude: 18.949, longitude: 72.9525 },
+  { name: "Alibaug", state: "Maharashtra", latitude: 18.6414, longitude: 72.8722 },
+  { name: "Murud", state: "Maharashtra", latitude: 18.3286, longitude: 72.9631 },
+  { name: "Ratnagiri", state: "Maharashtra", latitude: 16.9902, longitude: 73.312 },
+  { name: "Vengurla", state: "Maharashtra", latitude: 15.86, longitude: 73.6333 },
+
+  // Goa
+  { name: "Panaji", state: "Goa", latitude: 15.4909, longitude: 73.8278 },
+  { name: "Mormugao (Vasco)", state: "Goa", latitude: 15.396, longitude: 73.8157 },
+
+  // Karnataka
+  { name: "Karwar", state: "Karnataka", latitude: 14.8135, longitude: 74.1297 },
+  { name: "Honnavar", state: "Karnataka", latitude: 14.2833, longitude: 74.45 },
+  { name: "Malpe (Udupi)", state: "Karnataka", latitude: 13.35, longitude: 74.705 },
+  { name: "Mangaluru", state: "Karnataka", latitude: 12.9141, longitude: 74.856 },
+
+  // Kerala
+  { name: "Kannur", state: "Kerala", latitude: 11.8745, longitude: 75.3704 },
+  { name: "Beypore (Kozhikode)", state: "Kerala", latitude: 11.2588, longitude: 75.7804 },
+  { name: "Kochi", state: "Kerala", latitude: 9.9312, longitude: 76.2673 },
+  { name: "Alappuzha", state: "Kerala", latitude: 9.4981, longitude: 76.3388 },
+  { name: "Kollam", state: "Kerala", latitude: 8.8932, longitude: 76.6141 },
+  { name: "Vizhinjam (Thiruvananthapuram)", state: "Kerala", latitude: 8.3778, longitude: 76.9962 },
+
+  // Tamil Nadu
+  { name: "Kanyakumari", state: "Tamil Nadu", latitude: 8.0883, longitude: 77.5385 },
+  { name: "Thoothukudi (Tuticorin)", state: "Tamil Nadu", latitude: 8.7642, longitude: 78.1348 },
+  { name: "Rameswaram", state: "Tamil Nadu", latitude: 9.2876, longitude: 79.3129 },
+  { name: "Nagapattinam", state: "Tamil Nadu", latitude: 10.766, longitude: 79.842 },
+  { name: "Cuddalore", state: "Tamil Nadu", latitude: 11.748, longitude: 79.7714 },
+  { name: "Chennai Port", state: "Tamil Nadu", latitude: 13.0827, longitude: 80.2707 },
+  { name: "Ennore (Kamarajar Port)", state: "Tamil Nadu", latitude: 13.2333, longitude: 80.3167 },
+
+  // Puducherry
+  { name: "Puducherry", state: "Puducherry", latitude: 11.9416, longitude: 79.8083 },
+  { name: "Karaikal", state: "Puducherry", latitude: 10.9254, longitude: 79.838 },
+
+  // Andhra Pradesh
+  { name: "Krishnapatnam (Nellore)", state: "Andhra Pradesh", latitude: 14.28, longitude: 80.12 },
+  { name: "Machilipatnam", state: "Andhra Pradesh", latitude: 16.17, longitude: 81.13 },
+  { name: "Kakinada", state: "Andhra Pradesh", latitude: 16.9891, longitude: 82.2475 },
+  { name: "Visakhapatnam", state: "Andhra Pradesh", latitude: 17.6868, longitude: 83.2185 },
+  { name: "Bhimunipatnam", state: "Andhra Pradesh", latitude: 17.89, longitude: 83.45 },
+
+  // Odisha
+  { name: "Gopalpur", state: "Odisha", latitude: 19.2667, longitude: 84.9167 },
+  { name: "Puri", state: "Odisha", latitude: 19.8135, longitude: 85.8312 },
+  { name: "Paradip", state: "Odisha", latitude: 20.316, longitude: 86.611 },
+  { name: "Dhamra", state: "Odisha", latitude: 20.7833, longitude: 86.9833 },
+  { name: "Chandipur", state: "Odisha", latitude: 21.4667, longitude: 87.0167 },
+
+  // West Bengal
+  { name: "Digha", state: "West Bengal", latitude: 21.627, longitude: 87.509 },
+  { name: "Sagar Island", state: "West Bengal", latitude: 21.65, longitude: 88.05 },
+  { name: "Haldia", state: "West Bengal", latitude: 22.0257, longitude: 88.0583 },
+  { name: "Kolkata Port", state: "West Bengal", latitude: 22.5726, longitude: 88.3639 },
+
+  // Andaman & Nicobar Islands
+  { name: "Port Blair", state: "Andaman & Nicobar", latitude: 11.6234, longitude: 92.7265 },
+  { name: "Swaraj Dweep (Havelock)", state: "Andaman & Nicobar", latitude: 12.0167, longitude: 92.9833 },
+  { name: "Diglipur", state: "Andaman & Nicobar", latitude: 13.2667, longitude: 92.9833 },
+  { name: "Car Nicobar", state: "Andaman & Nicobar", latitude: 9.1667, longitude: 92.7833 },
+
+  // Lakshadweep
+  { name: "Kavaratti", state: "Lakshadweep", latitude: 10.5593, longitude: 72.6358 },
+  { name: "Agatti", state: "Lakshadweep", latitude: 10.85, longitude: 72.1833 },
+  { name: "Minicoy", state: "Lakshadweep", latitude: 8.2833, longitude: 73.05 },
+];
+
 const SECTOR_COPY: Record<string, Record<string, { name: string; region: string }>> = {
   en: { mumbai: { name: "Mumbai Harbour", region: "Konkan / Arabian Sea" }, goa: { name: "Goa Fishery Zone", region: "Central West Coast" }, mannar: { name: "Gulf of Mannar / Palk Strait", region: "Tamil Nadu Coast" }, kochi: { name: "Kochi Marine Sector", region: "Malabar / South Arabian Sea" }, chennai: { name: "Chennai Port & Bay", region: "Coromandel / Bay of Bengal" }, gahirmatha: { name: "Gahirmatha / Paradip", region: "Odisha Coast" } },
   hi: { mumbai: { name: "मुंबई बंदरगाह", region: "कोंकण / अरब सागर" }, goa: { name: "गोवा मत्स्य क्षेत्र", region: "मध्य पश्चिमी तट" }, mannar: { name: "मन्नार की खाड़ी / पाक जलडमरूमध्य", region: "तमिलनाडु तट" }, kochi: { name: "कोच्चि समुद्री क्षेत्र", region: "मालाबार / दक्षिण अरब सागर" }, chennai: { name: "चेन्नई बंदरगाह और खाड़ी", region: "कोरोमंडल / बंगाल की खाड़ी" }, gahirmatha: { name: "गहिरमाथा / पारादीप", region: "ओडिशा तट" } },
@@ -340,6 +435,14 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [voyagePlannerOpen, setVoyagePlannerOpen] = useState(false);
+
+  // Custom location picker (navbar)
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [manualLat, setManualLat] = useState("");
+  const [manualLon, setManualLon] = useState("");
+  const [geoStatus, setGeoStatus] = useState<string | null>(null);
+  const [geoLocating, setGeoLocating] = useState(false);
   const [alertsRead, setAlertsRead] = useState(false);
   const [vesselType, setVesselType] = useState("Artisanal fishing boat");
   const [departureHour, setDepartureHour] = useState("05:30");
@@ -553,7 +656,13 @@ export default function Home() {
   // =====================================================
   // ORCA MULTI-AGENT INVOCATION
   // =====================================================
-  const askORCA = async (question?: string) => {
+  const askORCA = async (
+    question?: string,
+    // When the user picks a place from the location picker we already know
+    // the exact coordinates, so pass them straight through instead of
+    // hoping the backend's planner recognises the name in the query text.
+    overrideLocation?: { name: string; latitude: number; longitude: number },
+  ) => {
     const finalQuery = (question ?? query).trim();
     if (!finalQuery || loading) return;
 
@@ -590,7 +699,7 @@ export default function Home() {
       // Carry the last resolved location forward so a follow-up like
       // "what about tomorrow morning?" (no location of its own) stays on
       // the same place instead of the backend falling back to its default.
-      const previousLocation = orcaData?.location;
+      const previousLocation = overrideLocation ?? orcaData?.location;
       const context = previousLocation
         ? {
             previous_location: {
@@ -600,7 +709,7 @@ export default function Home() {
             },
           }
         : undefined;
-      const res = await fetch("http://localhost:8000/api/orca", {
+      const res = await fetch(`${API_BASE}/api/orca`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: finalQuery, language: queryLanguage, context }),
@@ -665,6 +774,83 @@ export default function Home() {
     }
   };
 
+  // =====================================================
+  // CUSTOM LOCATION PICKER
+  // =====================================================
+
+  // Deliberately free of any place name — the backend only falls back to
+  // the coordinates we pass in `context` when the query text itself names
+  // no location, so naming one here would override the picked point.
+  const LOCATION_BRIEFING_QUERY =
+    "Give me a full marine safety, sea state and fishing briefing for this position.";
+
+  const applyCustomLocation = (loc: { name: string; latitude: number; longitude: number }) => {
+    setLocationPickerOpen(false);
+    setLocationSearch("");
+    setGeoStatus(null);
+    askORCA(LOCATION_BRIEFING_QUERY, loc);
+  };
+
+  const useCurrentLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoStatus("This browser does not support location access.");
+      return;
+    }
+
+    setGeoLocating(true);
+    setGeoStatus("Getting your location...");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoLocating(false);
+        applyCustomLocation({
+          name: "My Current Location",
+          latitude: Number(pos.coords.latitude.toFixed(4)),
+          longitude: Number(pos.coords.longitude.toFixed(4)),
+        });
+      },
+      (err) => {
+        setGeoLocating(false);
+        // Browsers only expose location over HTTPS or on localhost, so a
+        // teammate opening the app over a plain-HTTP LAN address will land
+        // here — say so rather than showing a bare "permission denied".
+        setGeoStatus(
+          err.code === err.PERMISSION_DENIED
+            ? "Location permission was denied. Allow it in your browser, or pick a place below."
+            : "Could not get your location. Pick a place below or enter coordinates.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
+
+  const submitManualCoordinates = () => {
+    const lat = Number(manualLat);
+    const lon = Number(manualLon);
+
+    if (!manualLat.trim() || !manualLon.trim() || Number.isNaN(lat) || Number.isNaN(lon)) {
+      setGeoStatus("Enter both latitude and longitude as numbers.");
+      return;
+    }
+
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      setGeoStatus("Latitude must be -90 to 90 and longitude -180 to 180.");
+      return;
+    }
+
+    setManualLat("");
+    setManualLon("");
+    applyCustomLocation({ name: `Custom Point (${lat.toFixed(3)}, ${lon.toFixed(3)})`, latitude: lat, longitude: lon });
+  };
+
+  const filteredLocations = (() => {
+    const term = locationSearch.trim().toLowerCase();
+    if (!term) return INDIAN_LOCATIONS;
+    return INDIAN_LOCATIONS.filter(
+      (l) => l.name.toLowerCase().includes(term) || l.state.toLowerCase().includes(term),
+    );
+  })();
+
   // Data helpers
   const marine = orcaData?.agents?.marine;
   const weather = orcaData?.agents?.weather;
@@ -724,7 +910,7 @@ export default function Home() {
 
     const poll = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/orca", {
+        const res = await fetch(`${API_BASE}/api/orca`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -904,6 +1090,19 @@ export default function Home() {
                 <Clock className="h-3.5 w-3.5 text-sky-400" />
                 <span>{systemTime || "Synchronizing..."}</span>
               </div>
+
+              {/* Custom location picker */}
+              <button
+                onClick={() => {
+                  setGeoStatus(null);
+                  setLocationPickerOpen(true);
+                }}
+                className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-sky-500/40 hover:text-sky-300 hover:scale-105"
+                title="Add a custom location"
+              >
+                <MapPin className="h-3.5 w-3.5 text-sky-400" />
+                <span className="hidden sm:inline">Add location</span>
+              </button>
 
               <button onClick={() => setAlertsOpen(true)} className="relative rounded-lg border border-slate-800 bg-slate-900 p-2 text-slate-400 transition hover:border-sky-500/40 hover:text-sky-400 hover:scale-105" title="Open safety alerts">
                 <Bell className="h-4 w-4" />
@@ -1435,6 +1634,135 @@ export default function Home() {
               <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-[11px] leading-relaxed text-slate-300">ORCA will combine PFZ signals, forecast conditions, vessel context and geofence checks into one departure briefing.</div>
               <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"><Sparkles className="h-4 w-4" /> {u("generate")}</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {locationPickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+          onClick={() => setLocationPickerOpen(false)}
+        >
+          <div
+            className="settings-panel flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-slate-700 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="settings-hero px-6 py-6">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="settings-icon-grid flex h-11 w-11 items-center justify-center rounded-2xl text-white">
+                    <MapPin className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-100">Sector targeting</p>
+                    <h2 className="mt-1 text-lg font-bold text-white">Add custom location</h2>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setLocationPickerOpen(false)}
+                  className="rounded-xl bg-white/10 p-2 text-white hover:bg-white/20"
+                  title="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-5 overflow-y-auto p-6 scrollbar-thin">
+              {/* Current location */}
+              <button
+                onClick={useCurrentLocation}
+                disabled={geoLocating || loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Crosshair className={`h-4 w-4 ${geoLocating ? "animate-spin" : ""}`} />
+                {geoLocating ? "Locating..." : "Use my current location"}
+              </button>
+
+              {geoStatus && (
+                <p className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-[11px] leading-relaxed text-amber-200">
+                  {geoStatus}
+                </p>
+              )}
+
+              {/* Manual coordinates */}
+              <section className="settings-section rounded-2xl border p-4">
+                <p className="mb-3 text-xs font-semibold text-slate-300">Enter coordinates</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] text-slate-400">Latitude</span>
+                    <input
+                      type="number"
+                      step="any"
+                      inputMode="decimal"
+                      placeholder="19.076"
+                      value={manualLat}
+                      onChange={(event) => setManualLat(event.target.value)}
+                      className="settings-input w-full rounded-xl border px-3 py-2.5 text-sm outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] text-slate-400">Longitude</span>
+                    <input
+                      type="number"
+                      step="any"
+                      inputMode="decimal"
+                      placeholder="72.877"
+                      value={manualLon}
+                      onChange={(event) => setManualLon(event.target.value)}
+                      className="settings-input w-full rounded-xl border px-3 py-2.5 text-sm outline-none"
+                    />
+                  </label>
+                </div>
+                <button
+                  onClick={submitManualCoordinates}
+                  disabled={loading}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-2.5 text-xs font-semibold text-sky-300 transition hover:bg-sky-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Navigation className="h-3.5 w-3.5" /> Use these coordinates
+                </button>
+              </section>
+
+              {/* Named places across India */}
+              <section className="settings-section rounded-2xl border p-4">
+                <p className="mb-3 text-xs font-semibold text-slate-300">Pick a place across India</p>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Search port, city or state..."
+                    value={locationSearch}
+                    onChange={(event) => setLocationSearch(event.target.value)}
+                    className="settings-input w-full rounded-xl border py-2.5 pl-9 pr-3 text-sm outline-none"
+                  />
+                </div>
+
+                <div className="mt-3 max-h-56 space-y-1 overflow-y-auto scrollbar-thin">
+                  {filteredLocations.length === 0 ? (
+                    <p className="px-1 py-3 text-[11px] text-slate-400">
+                      No match. Enter coordinates above for any point not listed.
+                    </p>
+                  ) : (
+                    filteredLocations.map((loc) => (
+                      <button
+                        key={`${loc.name}-${loc.latitude}`}
+                        onClick={() => applyCustomLocation(loc)}
+                        disabled={loading}
+                        className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-sky-500/40 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-medium text-slate-200">{loc.name}</span>
+                          <span className="block truncate text-[10px] text-slate-400">{loc.state}</span>
+                        </span>
+                        <span className="shrink-0 font-mono text-[10px] text-slate-500">
+                          {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       )}
