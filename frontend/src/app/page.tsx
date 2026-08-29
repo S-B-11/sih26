@@ -803,8 +803,15 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGeoLocating(false);
+
+        // Anything this coarse is a Wi-Fi/IP lookup rather than GPS, and an
+        // IP lookup resolves to where the connection is registered — the
+        // user's broadband address, not where they are. Label it for what
+        // it is instead of calling it their current location.
+        const coarse = pos.coords.accuracy > 5000;
+
         applyCustomLocation({
-          name: "My Current Location",
+          name: coarse ? "Approximate Location (network)" : "My Current Location",
           latitude: Number(pos.coords.latitude.toFixed(4)),
           longitude: Number(pos.coords.longitude.toFixed(4)),
         });
@@ -827,7 +834,10 @@ export default function Home() {
           setGeoStatus("No position available from this device right now. Pick a place or enter coordinates below.");
         }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      // See MarineMap: any cache window lets the browser return a stored
+      // position instead of measuring, which reports where the user was
+      // rather than where they are.
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
     );
   };
 
@@ -1368,9 +1378,19 @@ export default function Home() {
                   pfz={mapPfz}
                   geo={mapGeo}
                   route={mapRoute}
-                  onLocateMe={({ latitude, longitude }: { latitude: number; longitude: number }) =>
+                  onLocateMe={({
+                    latitude,
+                    longitude,
+                    accuracyM,
+                  }: {
+                    latitude: number;
+                    longitude: number;
+                    accuracyM: number;
+                  }) =>
                     applyCustomLocation({
-                      name: "My Current Location",
+                      // Same honesty rule as the picker: a >5 km fix is a
+                      // network lookup, so don't label it as where you are.
+                      name: accuracyM > 5000 ? "Approximate Location (network)" : "My Current Location",
                       latitude: Number(latitude.toFixed(4)),
                       longitude: Number(longitude.toFixed(4)),
                     })

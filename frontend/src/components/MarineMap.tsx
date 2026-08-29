@@ -108,6 +108,7 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     geoInsecure: "Location needs an HTTPS address. Open the console on localhost, or use the coordinate box in Add location.",
     geoTimeout: "Timed out getting a GPS fix. Try again near a window or with Wi-Fi on.",
     geoUnavailable: "No position available from this device right now.",
+    geoCoarse: "This fix is only accurate to ~{km} km, so it came from your network, not GPS — it usually points at your broadband address. Set the exact spot with Add location.",
     youAreHere: "Your location",
     accuracyLabel: "accurate to ~{m} m",
   },
@@ -137,6 +138,7 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     geoInsecure: "स्थान के लिए HTTPS पता आवश्यक है। localhost पर खोलें या निर्देशांक दर्ज करें।",
     geoTimeout: "GPS स्थान प्राप्त करने में समय समाप्त। खिड़की के पास पुनः प्रयास करें।",
     geoUnavailable: "इस डिवाइस से अभी कोई स्थिति उपलब्ध नहीं है।",
+    geoCoarse: "यह स्थान केवल ~{km} किमी तक सटीक है, यानी यह GPS से नहीं बल्कि आपके नेटवर्क से आया है — यह प्रायः आपके ब्रॉडबैंड पते को दर्शाता है। सटीक स्थान 'Add location' से चुनें।",
     youAreHere: "आपका स्थान",
     accuracyLabel: "~{m} मीटर तक सटीक",
   },
@@ -166,6 +168,7 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     geoInsecure: "இருப்பிடத்திற்கு HTTPS முகவரி தேவை. localhost இல் திறக்கவும் அல்லது ஆயத்தொலைவுகளை உள்ளிடவும்.",
     geoTimeout: "GPS இருப்பிடம் பெற நேரம் முடிந்தது. மீண்டும் முயற்சிக்கவும்.",
     geoUnavailable: "இந்த சாதனத்திலிருந்து தற்போது இருப்பிடம் இல்லை.",
+    geoCoarse: "இந்த இருப்பிடம் ~{km} கிமீ வரை மட்டுமே துல்லியமானது — இது GPS அல்ல, உங்கள் நெட்வொர்க்கிலிருந்து வந்தது, பொதுவாக உங்கள் பிராட்பேண்ட் முகவரியைக் காட்டும். சரியான இடத்தை 'Add location' மூலம் அமைக்கவும்.",
     youAreHere: "உங்கள் இருப்பிடம்",
     accuracyLabel: "~{m} மீ துல்லியம்",
   },
@@ -195,6 +198,7 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     geoInsecure: "స్థానానికి HTTPS చిరునామా అవసరం. localhost లో తెరవండి లేదా కోఆర్డినేట్‌లు నమోదు చేయండి.",
     geoTimeout: "GPS స్థానం పొందడంలో సమయం ముగిసింది. మళ్లీ ప్రయత్నించండి.",
     geoUnavailable: "ఈ పరికరం నుండి ప్రస్తుతం స్థానం అందుబాటులో లేదు.",
+    geoCoarse: "ఈ స్థానం ~{km} కి.మీ వరకు మాత్రమే ఖచ్చితం — ఇది GPS కాదు, మీ నెట్‌వర్క్ నుండి వచ్చింది, సాధారణంగా మీ బ్రాడ్‌బ్యాండ్ చిరునామాను చూపుతుంది. ఖచ్చితమైన స్థానాన్ని 'Add location' ద్వారా ఎంచుకోండి.",
     youAreHere: "మీ స్థానం",
     accuracyLabel: "~{m} మీ ఖచ్చితత్వం",
   },
@@ -224,6 +228,7 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     geoInsecure: "ലൊക്കേഷന് HTTPS വിലാസം വേണം. localhost ൽ തുറക്കുക അല്ലെങ്കിൽ കോർഡിനേറ്റുകൾ നൽകുക.",
     geoTimeout: "GPS ലൊക്കേഷൻ ലഭിക്കാൻ സമയം കഴിഞ്ഞു. വീണ്ടും ശ്രമിക്കുക.",
     geoUnavailable: "ഈ ഉപകരണത്തിൽ നിന്ന് ഇപ്പോൾ സ്ഥാനം ലഭ്യമല്ല.",
+    geoCoarse: "ഈ സ്ഥാനം ~{km} കി.മീ വരെ മാത്രം കൃത്യമാണ് — ഇത് GPS അല്ല, നിങ്ങളുടെ നെറ്റ്‌വർക്കിൽ നിന്നാണ്, സാധാരണയായി ബ്രോഡ്‌ബാൻഡ് വിലാസം കാണിക്കും. കൃത്യമായ സ്ഥാനം 'Add location' വഴി നൽകുക.",
     youAreHere: "നിങ്ങളുടെ സ്ഥാനം",
     accuracyLabel: "~{m} മീ കൃത്യത",
   },
@@ -253,6 +258,7 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     geoInsecure: "অবস্থানের জন্য HTTPS ঠিকানা প্রয়োজন। localhost এ খুলুন বা স্থানাঙ্ক লিখুন।",
     geoTimeout: "GPS অবস্থান পেতে সময় শেষ। আবার চেষ্টা করুন।",
     geoUnavailable: "এই ডিভাইস থেকে এখন অবস্থান পাওয়া যাচ্ছে না।",
+    geoCoarse: "এই অবস্থান কেবল ~{km} কিমি পর্যন্ত নির্ভুল — এটি GPS নয়, আপনার নেটওয়ার্ক থেকে এসেছে, সাধারণত আপনার ব্রডব্যান্ড ঠিকানা দেখায়। সঠিক জায়গা 'Add location' দিয়ে নির্বাচন করুন।",
     youAreHere: "আপনার অবস্থান",
     accuracyLabel: "~{m} মি নির্ভুল",
   },
@@ -282,6 +288,7 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     geoInsecure: "સ્થાન માટે HTTPS સરનામું જરૂરી છે. localhost પર ખોલો અથવા કોઓર્ડિનેટ્સ દાખલ કરો.",
     geoTimeout: "GPS સ્થાન મેળવવામાં સમય પૂરો. ફરી પ્રયાસ કરો.",
     geoUnavailable: "આ ડિવાઇસમાંથી હાલમાં સ્થાન ઉપલબ્ધ નથી.",
+    geoCoarse: "આ સ્થાન માત્ર ~{km} કિમી સુધી ચોક્કસ છે — તે GPS નહીં, તમારા નેટવર્કમાંથી આવ્યું છે, સામાન્ય રીતે તમારું બ્રોડબેન્ડ સરનામું બતાવે છે. ચોક્કસ સ્થાન 'Add location' થી પસંદ કરો.",
     youAreHere: "તમારું સ્થાન",
     accuracyLabel: "~{m} મી ચોકસાઈ",
   },
@@ -311,6 +318,7 @@ const MAP_COPY: Record<string, Record<string, string>> = {
     geoInsecure: "स्थानासाठी HTTPS पत्ता आवश्यक आहे. localhost वर उघडा किंवा निर्देशांक प्रविष्ट करा.",
     geoTimeout: "GPS स्थान मिळवण्यात वेळ संपली. पुन्हा प्रयत्न करा.",
     geoUnavailable: "या डिव्हाइसवरून सध्या स्थान उपलब्ध नाही.",
+    geoCoarse: "हे स्थान फक्त ~{km} किमी पर्यंत अचूक आहे — ते GPS नव्हे तर तुमच्या नेटवर्कमधून आले आहे, सहसा तुमचा ब्रॉडबँड पत्ता दाखवते. अचूक जागा 'Add location' मधून निवडा.",
     youAreHere: "तुमचे स्थान",
     accuracyLabel: "~{m} मी अचूकता",
   },
@@ -355,6 +363,11 @@ function markerIcon(emoji: string, background: string, size = 30, pulse = false)
     popupAnchor: [0, -size / 2],
   });
 }
+
+// Above this reported accuracy a fix cannot have come from GPS — it is a
+// Wi-Fi or IP-address lookup, which points at where the connection is
+// registered rather than where the device is.
+const COARSE_FIX_M = 5000;
 
 const vesselIcon = markerIcon("⚓", "#0ea5e9", 32, true);
 // Distinct from the vessel/sector marker: this is where the device says the
@@ -484,6 +497,16 @@ function MapRecenterControls({
           accuracyM: pos.coords.accuracy,
         };
 
+        // A fix this coarse did not come from GPS. On a desktop with no GPS
+        // radio the browser falls back to Wi-Fi lookup and then to the IP
+        // address, and an IP fix resolves to wherever the connection is
+        // registered — typically the user's broadband address or their
+        // ISP's city centre, not where they are standing. Say so rather
+        // than presenting it as a real position.
+        if (pos.coords.accuracy > COARSE_FIX_M) {
+          setGeoError(mt(language, "geoCoarse", { km: Math.round(pos.coords.accuracy / 1000) }));
+        }
+
         // Mark the exact fix (plus its accuracy radius) and zoom to a level
         // that matches how precise it actually is — a 30 m urban fix earns
         // street zoom, a 5 km cell-tower fix does not.
@@ -514,7 +537,14 @@ function MapRecenterControls({
           setGeoError(mt(language, "geoUnavailable"));
         }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      // maximumAge:0 is deliberate. With any cache window the browser is
+      // free to hand back a stored position without re-measuring, which is
+      // how "my location" ends up reporting somewhere the user was earlier
+      // (typically home) rather than where they are now. Forcing a fresh
+      // fix costs a few seconds, hence the longer timeout: a short one
+      // makes the browser give up on GPS/Wi-Fi and settle for a coarse
+      // IP-derived estimate.
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
     );
   };
 
