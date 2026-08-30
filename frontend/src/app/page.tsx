@@ -1676,13 +1676,18 @@ export default function Home() {
               <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs">
                 {chatHistory.map((msg, index) => {
                   const isUser = msg.role === "user";
+                  // A greeting or a definition ran no specialists and involved
+                  // no measurement, so the consensus label, the confidence
+                  // figure and the trace disclosure are all theatre on it.
+                  // Keep that machinery for answers that earned it.
+                  const isCasual = !isUser && (msg.agentTrace?.length ?? 0) <= 1;
                   return (
                     <div key={msg.id || index} className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
                       <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] font-mono text-slate-400">
-                        <span>{isUser ? "OPERATOR" : "ORCA AGENT CONSENSUS"}</span>
+                        <span>{isUser ? "You" : isCasual ? "ORCA" : "ORCA AGENT CONSENSUS"}</span>
                         <span>•</span>
                         <span>{msg.time}</span>
-                        {msg.confidence && (
+                        {msg.confidence && !isCasual && (
                           <span className="text-emerald-400 font-semibold">• {msg.confidence.toFixed(1)}% Conf.</span>
                         )}
                       </div>
@@ -1700,7 +1705,7 @@ export default function Home() {
                             their real durations. Kept with the message rather
                             than in a standing panel, so the collaboration is
                             evidence attached to a claim. */}
-                        {!isUser && msg.agentTrace && msg.agentTrace.length > 0 && (
+                        {!isUser && !isCasual && msg.agentTrace && msg.agentTrace.length > 0 && (
                           <details className="mt-2.5 rounded-lg border border-slate-800 bg-slate-950/50">
                             <summary className="cursor-pointer list-none px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-400 hover:text-sky-300">
                               {msg.agentTrace.length} agent{msg.agentTrace.length === 1 ? "" : "s"} &middot; how this answer was built
@@ -1729,7 +1734,7 @@ export default function Home() {
                           </details>
                         )}
 
-                        {!isUser && index === chatHistory.length - 1 && (
+                        {!isUser && !isCasual && index === chatHistory.length - 1 && (
                           <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
                             <span className="font-mono text-[10px] text-sky-400">
                               {/* Untrue for a definition, which runs no data

@@ -172,8 +172,18 @@ _DEFINITION_PATTERNS = [
 ]
 
 _GREETING_PATTERNS = [
-    r"^\s*(hi|hello|hey|namaste|namaskar|vanakkam)\b",
-    r"^\s*(good\s+(morning|evening|afternoon))\b",
+    r"^\s*(hi+|hello+|hey+|yo|namaste|namaskar|vanakkam|salaam)\b",
+    r"^\s*(good\s+(morning|evening|afternoon|night))\b",
+    r"^\s*(kaise\s+ho|kya\s+haal)\b",
+]
+
+# Ordinary conversational turns. Without these, "thanks" was treated as a
+# request for readings and answered with a wall of telemetry.
+_SMALLTALK_PATTERNS = [
+    (r"\b(thanks|thank you|thx|shukriya|dhanyavad)\b", "thanks"),
+    (r"^\s*(ok|okay|okey|got it|thik hai|theek hai|acha)\s*[.!]?\s*$", "ack"),
+    (r"^\s*(bye|goodbye|see you|alvida)\b", "bye"),
+    (r"\b(who made you|who built you|are you (an?\s+)?(ai|bot|robot))\b", "identity"),
 ]
 
 _CAPABILITY_PATTERNS = [
@@ -216,6 +226,10 @@ def classify(query: str) -> Optional[str]:
         if re.search(pattern, text):
             return "greeting"
 
+    for pattern, kind in _SMALLTALK_PATTERNS:
+        if re.search(pattern, text):
+            return f"smalltalk:{kind}"
+
     for pattern in _CAPABILITY_PATTERNS:
         if re.search(pattern, text):
             return "capability"
@@ -241,11 +255,27 @@ def answer(query: str, intent: str) -> Dict[str, object]:
     if intent == "greeting":
         return {
             "response": (
-                "Namaste. I can tell you about fishing zones, sea conditions "
-                "and whether it is safe to go out today.\n\n"
-                "Try asking: \"Is it safe to venture out tomorrow morning?\" "
-                "or \"Where is the nearest fishing zone?\""
+                "Namaste! Ask me anything about the sea — whether it is safe "
+                "to go out, where the fish might be, or what the weather is "
+                "doing."
             ),
+            "citations": [],
+            "why_explanation": [],
+        }
+
+    if intent.startswith("smalltalk:"):
+        kind = intent.split(":", 1)[1]
+        return {
+            "response": {
+                "thanks": "Anytime. Stay safe out there.",
+                "ack": "Got it. Ask me whenever you need the sea checked.",
+                "bye": "Safe seas. Check back before you set out.",
+                "identity": (
+                    "I am ORCA, a marine assistant for Indian coastal waters. "
+                    "I read live sea and weather data and tell you what it "
+                    "means for going out."
+                ),
+            }.get(kind, "Got it."),
             "citations": [],
             "why_explanation": [],
         }
