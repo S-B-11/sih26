@@ -1707,8 +1707,22 @@ export default function Home() {
                             evidence attached to a claim. */}
                         {!isUser && !isCasual && msg.agentTrace && msg.agentTrace.length > 0 && (
                           <details className="mt-2.5 rounded-lg border border-slate-800 bg-slate-950/50">
-                            <summary className="cursor-pointer list-none px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-400 hover:text-sky-300">
-                              {msg.agentTrace.length} agent{msg.agentTrace.length === 1 ? "" : "s"} &middot; how this answer was built
+                            {/* Name the agents on the closed row. Collapsed
+                                behind a count, "which agents answered this"
+                                took a click that nobody makes. */}
+                            <summary className="flex cursor-pointer list-none flex-wrap items-center gap-1 px-2.5 py-1.5 hover:opacity-90">
+                              <span className="mr-0.5 font-mono text-[9px] uppercase tracking-wider text-slate-500">
+                                Answered by
+                              </span>
+                              {msg.agentTrace.map((step) => (
+                                <span
+                                  key={step.agent_name}
+                                  className="rounded border border-slate-700 bg-slate-900 px-1.5 py-px font-mono text-[9px] capitalize text-slate-300"
+                                >
+                                  {step.agent_name}
+                                </span>
+                              ))}
+                              <span className="ml-auto font-mono text-[9px] text-slate-500">timings &rsaquo;</span>
                             </summary>
                             <div className="space-y-1 border-t border-slate-800 px-2.5 py-2">
                               {msg.agentTrace.map((step, stepIndex) => (

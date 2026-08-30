@@ -20,6 +20,9 @@ if (typeof window !== "undefined") {
   // guarantee before use.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require("leaflet-velocity");
+  // Same story: leaflet.heat attaches L.heatLayer onto the global L.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("leaflet.heat");
 }
 
 export type MapZone = {
@@ -807,6 +810,125 @@ function WindVelocityLayer({ grid, language }: { grid: WindGridLayer[] | null; l
   return null;
 }
 
+// PFZ used to arrive only as a by-product of asking about fishing in the
+// chat, so selecting the PFZ layer on a fresh page showed an empty sea.
+// The layer now fetches for itself, and defers to whatever the
+// conversation already produced rather than duplicating the call.
+function usePfzLayer(
+  active: boolean,
+  lat: number,
+  lon: number,
+  fromChat: MarineMapProps["pfz"],
+) {
+  const [fetched, setFetched] = useState<MarineMapProps["pfz"]>(null);
+
+  useEffect(() => {
+    if (!active || fromChat) {
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    fetch(`${API_BASE}/api/pfz?latitude=${lat}&longitude=${lon}`, {
+      signal: controller.signal,
+    })
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled || !body?.success) return;
+        const data = body.data ?? {};
+        const zone = data.nearest_zone ?? data.nearestZone;
+        const candidates = data.candidates ?? [];
+        if (!zone) return;
+
+        setFetched({
+          nearestZone: {
+            latitude: zone.latitude,
+            longitude: zone.longitude,
+            distance_km: zone.distance_km,
+            bearing_compass: zone.bearing_compass ?? "",
+            confidence: zone.confidence ?? "MODERATE",
+          },
+          candidates,
+        });
+      })
+      .catch(() => {
+        // Layer just stays empty; the chat can still populate it.
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [active, lat, lon, fromChat]);
+
+  return fromChat ?? fetched;
+}
+
+// Productivity rendered as a continuous heat field rather than one circle
+// per sampled grid point. The dots showed exactly where the model happened
+// to sample, which reads as false precision — a fisherman is not being told
+// "fish are in this 4.5km disc", they are being told this stretch of water
+// looks better than that one. A blended field says that honestly.
+function PfzHeatLayer({
+  candidates,
+}: {
+  candidates: Array<{ latitude: number; longitude: number; score: number }>;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!candidates || candidates.length === 0) return;
+
+    const scores = candidates.map((c) => c.score);
+    const min = Math.min(...scores);
+    const max = Math.max(...scores);
+    const span = max - min || 1;
+
+    // Normalise to 0-1 across the actual spread, so a field where every
+    // point scores 55-65 still shows its structure instead of rendering
+    // uniformly warm.
+    const points = candidates.map((c) => [
+      c.latitude,
+      c.longitude,
+      0.25 + 0.75 * ((c.score - min) / span),
+    ]);
+
+    // @ts-expect-error - leaflet.heat has no type declarations; it extends
+    // the global L namespace at runtime (see the require() at top of file).
+    const layer = L.heatLayer(points, {
+      // Tuned against the dark basemap: the default radius/opacity render
+      // as a barely-visible smudge on it.
+      radius: 55,
+      blur: 40,
+      maxZoom: 11,
+      minOpacity: 0.45,
+      gradient: {
+        0.0: "#0e7490",
+        0.3: "#0891b2",
+        0.5: "#22c55e",
+        0.7: "#eab308",
+        0.85: "#f97316",
+        1.0: "#ef4444",
+      },
+    });
+
+    layer.addTo(map);
+
+    return () => {
+      try {
+        // @ts-expect-error - Leaflet's internal "still alive" flag is not
+        // part of its public types.
+        if (map._loaded) map.removeLayer(layer);
+      } catch {
+        // Map already torn down.
+      }
+    };
+  }, [candidates, map]);
+
+  return null;
+}
+
 export default function MarineMap({ center, activeLayer, marine, pfz, geo, route, language, onLocateMe }: MarineMapProps) {
   const restrictedZone = geo?.restrictedZone;
   const mpaZone = geo?.mpaZone;
@@ -827,6 +949,7 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
 
 
   const windGrid = useWindGrid(activeLayer === "wind", center.lat, center.lon);
+  const pfzLayer = usePfzLayer(activeLayer === "pfz", center.lat, center.lon, pfz);
 
   const isBathymetry = activeLayer === "bathymetry";
 
@@ -971,55 +1094,29 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
 
       {activeLayer === "wind" && <WindVelocityLayer grid={windGrid} language={language} />}
 
-      {activeLayer === "pfz" && pfz && (
+      {activeLayer === "pfz" && pfzLayer && (
         <>
-          {/* Every scored grid point, not just the winner — reads as a
-              productivity heat layer so the chosen zone's "why" is visible
-              (nearby green points) instead of one pin with no context. */}
-          {pfz.candidates.map((candidate, index) => {
-            const isBest =
-              candidate.latitude === pfz.nearestZone.latitude && candidate.longitude === pfz.nearestZone.longitude;
-            if (isBest) return null;
-            return (
-              <Circle
-                key={index}
-                center={[candidate.latitude, candidate.longitude]}
-                radius={4500}
-                pathOptions={{
-                  color: pfzScoreColor(candidate.score),
-                  fillColor: pfzScoreColor(candidate.score),
-                  fillOpacity: 0.35,
-                  weight: 1,
-                  opacity: 0.6,
-                  className: `map-stagger-${index % 8}`,
-                }}
-              >
-                <Popup>
-                  {mt(language, "pfzScore", { score: candidate.score })}
-                  <br />
-                  {mt(language, "pfzSst", { sst: candidate.sea_surface_temperature })}
-                  <br />
-                  {mt(language, "pfzFrom", { distance: candidate.distance_km })}
-                </Popup>
-              </Circle>
-            );
-          })}
+          {/* Continuous field rather than a dot per sampled point: the grid
+              is where the model happened to sample, not where the fish are,
+              and drawing discs implied a precision the estimate does not
+              have. */}
+          <PfzHeatLayer candidates={pfzLayer.candidates} />
 
           <Circle
-            center={[pfz.nearestZone.latitude, pfz.nearestZone.longitude]}
-            radius={confidenceRadiusM(pfz.nearestZone.confidence)}
-            pathOptions={{ color: "#059669", fillColor: "#059669", fillOpacity: 0.12, dashArray: "4 5" }}
+            center={[pfzLayer.nearestZone.latitude, pfzLayer.nearestZone.longitude]}
+            radius={confidenceRadiusM(pfzLayer.nearestZone.confidence)}
+            pathOptions={{ color: "#059669", fillColor: "#059669", fillOpacity: 0.1, dashArray: "4 5" }}
           />
-          <Marker position={[pfz.nearestZone.latitude, pfz.nearestZone.longitude]} icon={pfzIcon}>
+          <Marker position={[pfzLayer.nearestZone.latitude, pfzLayer.nearestZone.longitude]} icon={pfzIcon}>
             <Popup>
               {mt(language, "pfzNearestTitle")}
               <br />
               {mt(language, "pfzOfPosition", {
-                distance: pfz.nearestZone.distance_km,
-                bearing: pfz.nearestZone.bearing_compass,
+                distance: pfzLayer.nearestZone.distance_km,
+                bearing: pfzLayer.nearestZone.bearing_compass,
               })}
               <br />
-              {mt(language, "pfzConfidence", { confidence: pfz.nearestZone.confidence })}
+              {mt(language, "pfzConfidence", { confidence: pfzLayer.nearestZone.confidence })}
             </Popup>
           </Marker>
         </>
