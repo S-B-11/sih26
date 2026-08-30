@@ -12,6 +12,10 @@ from s3_planner.planner import plan_query
 from s4_agents.geospatial.geo_agent import analyze_location, INDIAN_MPA_ZONES, INDIAN_RESTRICTED_ZONES
 from s4_agents.risk.risk_agent import calculate_risk
 from s5_synthesis.synthesis_agent import synthesize_response
+from s8_knowledge.glossary import (
+    answer as glossary_answer,
+    classify as classify_conversational,
+)
 from s4_agents.geospatial.location_agent import resolve_location
 from s4_agents.marine.pfz_agent import find_potential_fishing_zone
 from s4_agents.geospatial.route_agent import plan_safe_route
@@ -486,6 +490,45 @@ def orca_query(request: QueryRequest):
         # =================================================
 
         _planner_started = time.perf_counter()
+
+        # A definition, a greeting or "what can you do" is not a request for
+        # readings. Answering those from the glossary keeps the reply
+        # accurate and instant, and — just as importantly — means no data
+        # agents run, so the trace does not claim work that never happened.
+        conversational_intent = classify_conversational(user_query)
+
+        if conversational_intent is not None:
+
+            composed = glossary_answer(user_query, conversational_intent)
+            planner_ms = (time.perf_counter() - _planner_started) * 1000
+
+            return {
+                "success": True,
+                "system": "ORCA",
+                "query": user_query,
+                "plan": {
+                    "intent": conversational_intent,
+                    "agents_required": [],
+                    "tasks": ["Answer from the marine glossary"],
+                },
+                "location": None,
+                "time_context": None,
+                "agents": {},
+                "response": {
+                    "query": user_query,
+                    "language_detected": request.language or "en",
+                    "risk_level": None,
+                    "safety_score": None,
+                    "confidence_score": None,
+                    **composed,
+                },
+                "agent_trace": [{
+                    "agent_name": "planner",
+                    "status": "done",
+                    "duration_ms": round(planner_ms, 1),
+                    "detail": f"Answered as a {conversational_intent}, no data needed",
+                }],
+            }
 
         plan = plan_query(
             user_query

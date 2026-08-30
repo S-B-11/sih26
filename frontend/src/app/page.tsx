@@ -1703,7 +1703,7 @@ export default function Home() {
                         {!isUser && msg.agentTrace && msg.agentTrace.length > 0 && (
                           <details className="mt-2.5 rounded-lg border border-slate-800 bg-slate-950/50">
                             <summary className="cursor-pointer list-none px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-400 hover:text-sky-300">
-                              {msg.agentTrace.length} agents &middot; how this answer was built
+                              {msg.agentTrace.length} agent{msg.agentTrace.length === 1 ? "" : "s"} &middot; how this answer was built
                             </summary>
                             <div className="space-y-1 border-t border-slate-800 px-2.5 py-2">
                               {msg.agentTrace.map((step, stepIndex) => (
@@ -1732,7 +1732,11 @@ export default function Home() {
                         {!isUser && index === chatHistory.length - 1 && (
                           <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
                             <span className="font-mono text-[10px] text-sky-400">
-                              Cross-checked across marine, weather and geofence agents
+                              {/* Untrue for a definition, which runs no data
+                                  agents at all — say what actually happened. */}
+                              {(msg.agentTrace?.length ?? 0) > 1
+                                ? "Cross-checked across marine, weather and geofence agents"
+                                : "Answered from ORCA's reviewed marine glossary"}
                             </span>
                             <div className="flex items-center gap-1">
                               <button
@@ -2482,25 +2486,24 @@ function AnimatedNumber({ value, decimals = 1 }: { value: number; decimals?: num
 // timings appear on the finished message.
 // =========================================================
 
-const FLOW_STAGES: Array<{ id: string; label: string; detail: string; parallel?: boolean }> = [
-  { id: "planner", label: "Planner", detail: "Reading the question, choosing specialists" },
-  { id: "marine", label: "Marine", detail: "Sea surface temperature, waves, sea state", parallel: true },
-  { id: "weather", label: "Weather", detail: "Wind, forecast, storm and lightning", parallel: true },
-  { id: "pfz", label: "Fishing zones", detail: "Searching the productivity grid", parallel: true },
-  { id: "geospatial", label: "Geofence", detail: "EEZ, protected and restricted waters" },
-  { id: "risk", label: "Risk", detail: "Weighted safety score" },
-  { id: "synthesis", label: "Synthesis", detail: "Composing an evidence-cited answer" },
+// Three stages, not a named agent list. Which specialists run is decided
+// by the planner server-side and is not known until the response returns —
+// naming "Marine, Weather, PFZ" up front would show agents working that a
+// definition question never invokes. The finished message carries the real
+// list, with the agents that actually ran.
+const FLOW_STAGES: Array<{ id: string; label: string; detail: string }> = [
+  { id: "planner", label: "Understanding the question", detail: "Working out what is being asked" },
+  { id: "specialists", label: "Consulting specialists", detail: "Only the ones this question needs" },
+  { id: "synthesis", label: "Writing the answer", detail: "With the evidence it came from" },
 ];
 
 function AgentFlowThinking() {
   const [stage, setStage] = useState(0);
 
   useEffect(() => {
-    // Paced so the three parallel agents light together and the whole
-    // sequence reads at conversational speed rather than flickering past.
     const timer = setInterval(() => {
       setStage((current) => Math.min(current + 1, FLOW_STAGES.length - 1));
-    }, 420);
+    }, 700);
     return () => clearInterval(timer);
   }, []);
 
@@ -2509,7 +2512,7 @@ function AgentFlowThinking() {
       <div className="flex items-center gap-2">
         <Cpu className="h-3.5 w-3.5 animate-pulse text-sky-400" />
         <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300">
-          Agents working
+          Working
         </span>
       </div>
 
@@ -2517,13 +2520,11 @@ function AgentFlowThinking() {
         {FLOW_STAGES.map((item, index) => {
           const done = index < stage;
           const active = index === stage;
-          const pending = index > stage;
-
           return (
             <div
               key={item.id}
               className={`flex items-start gap-2.5 transition-opacity duration-300 ${
-                pending ? "opacity-30" : "opacity-100"
+                index > stage ? "opacity-30" : "opacity-100"
               }`}
             >
               <div className="flex flex-col items-center pt-0.5">
@@ -2536,16 +2537,8 @@ function AgentFlowThinking() {
                   <span className={`mt-0.5 h-4 w-px ${done ? "bg-emerald-400/40" : "bg-slate-700"}`} />
                 )}
               </div>
-
               <div className="min-w-0 flex-1 pb-0.5">
-                <p className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200">
-                  {item.label}
-                  {item.parallel && (
-                    <span className="rounded border border-slate-700 px-1 font-mono text-[8px] uppercase tracking-wide text-slate-500">
-                      parallel
-                    </span>
-                  )}
-                </p>
+                <p className="text-[11px] font-semibold text-slate-200">{item.label}</p>
                 <p className="truncate text-[10px] text-slate-400">{item.detail}</p>
               </div>
             </div>

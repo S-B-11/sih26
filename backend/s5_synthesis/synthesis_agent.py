@@ -303,6 +303,55 @@ def _detect_language(query: str) -> str:
     return "en"
 
 
+def _plain_verdict(risk_level, score, wave_height_val, wind_speed, geo_status: str) -> str:
+    """
+    One sentence in ordinary words, placed above the instrument readout.
+
+    Curated phrasing rather than generated: this is the line a fisherman
+    acts on, so it should be reviewed text with fixed thresholds, not
+    something reworded per request.
+    """
+
+    # A boundary problem outranks the weather — it is the one that gets a
+    # boat seized rather than merely wet.
+    if geo_status and any(f in geo_status.upper() for f in ("CRITICAL", "RESTRICTED", "ALERT")):
+        return (
+            "Do not fish here. This position is inside restricted waters — "
+            "the sea is not the problem, the boundary is."
+        )
+
+    if risk_level == "NOT_APPLICABLE" or score is None:
+        return "This position is not at sea, so there is nothing to report on the water here."
+
+    wave = wave_height_val if isinstance(wave_height_val, (int, float)) else None
+    wind = wind_speed if isinstance(wind_speed, (int, float)) else None
+
+    if risk_level == "HIGH":
+        lead = "Not safe to go out today."
+    elif risk_level in ("MODERATE", "MEDIUM"):
+        lead = "Go out only if you must, and stay close to shore."
+    else:
+        lead = "Conditions look fine for going out."
+
+    parts = []
+    if wave is not None:
+        if wave >= 3.0:
+            parts.append(f"waves are high, about {wave} m")
+        elif wave >= 2.0:
+            parts.append(f"waves are moderate, about {wave} m")
+        else:
+            parts.append(f"the sea is calm, waves about {wave} m")
+    if wind is not None:
+        if wind >= 40:
+            parts.append(f"the wind is strong at {wind} km/h")
+        elif wind >= 25:
+            parts.append(f"there is a fresh breeze at {wind} km/h")
+        else:
+            parts.append(f"the wind is light at {wind} km/h")
+
+    return f"{lead} Right now {' and '.join(parts)}." if parts else lead
+
+
 def synthesize_response(
     user_query: str,
     marine_data: Dict[str, Any],
@@ -537,6 +586,15 @@ def synthesize_response(
             f"🎯 Actionable Recommendation:\n"
             f"{recommendation}"
         )
+
+    # Plain words first. The readout below is accurate but reads like an
+    # instrument panel; someone deciding whether to take a boat out needs
+    # the answer in language they would use themselves, with the telemetry
+    # still there underneath for anyone who wants it.
+    plain_lead = _plain_verdict(
+        risk_level, score, wave_height_val, wind_speed, geo_status
+    )
+    response_text = f"{plain_lead}\n\n{response_text}"
 
     if pfz_line:
         response_text = f"{response_text}\n\n{pfz_line}"
