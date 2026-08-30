@@ -1313,15 +1313,14 @@ export default function Home() {
                 {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </button>
 
-              <div>
-                <div className="flex items-center gap-2.5">
+              {/* min-w-0 at every level, or the truncate below never engages
+                  and the title bleeds across the header controls. */}
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <h2 className="header-title-gradient truncate text-xs font-bold tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-200 bg-clip-text text-transparent sm:whitespace-normal sm:text-sm">
                     {t("platformTitle")}
                   </h2>
-                  <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/25 text-[10px] font-mono font-semibold tracking-wide shadow-[0_0_16px_rgba(14,165,233,0.12)]">
-                    <Radio className="h-3 w-3 animate-pulse text-sky-400" />
-                    OPEN-METEO • NOAA • CMEMS
-                  </span>
+
                 </div>
                 {/* Hidden on phones: the header is a fixed height and the
                     strapline was being clipped mid-sentence. */}
@@ -1339,25 +1338,6 @@ export default function Home() {
                 <span>{systemTime || "Synchronizing..."}</span>
               </div>
 
-              {/* Language, in the header rather than buried in settings: the
-                  problem statement asks for any Indian language, so the
-                  control that proves it should be visible without hunting. */}
-              <label className="hidden items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 md:flex">
-                <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500">Lang</span>
-                <select
-                  value={selectedLanguage}
-                  onChange={(event) => setSelectedLanguage(event.target.value)}
-                  aria-label="Interface language"
-                  className="cursor-pointer border-0 bg-transparent text-[11px] font-semibold text-slate-200 outline-none"
-                >
-                  {LANGUAGES.map((language) => (
-                    <option key={language.code} value={language.code} className="bg-slate-900">
-                      {language.native}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
               {/* Active sector — also the entry point to the location picker,
                   so the navbar both reports where the console is pointed and
                   is the control for changing it. */}
@@ -1370,7 +1350,7 @@ export default function Home() {
                 title={`Active sector: ${locationName} (${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E) — click to change`}
               >
                 <MapPin className="h-3.5 w-3.5 shrink-0 text-sky-400" />
-                <span className="hidden min-w-0 leading-tight sm:block">
+                <span className="hidden min-w-0 leading-tight md:block">
                   <span className="block text-[9px] font-mono uppercase tracking-wider text-slate-500">
                     {t("sectorTargeting")}
                   </span>
@@ -1543,7 +1523,7 @@ export default function Home() {
           ====================================================== */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             {/* LEFT / CENTER: TACTICAL INTERACTIVE MAP & RADAR (7 COLS) */}
-            <div className="xl:col-span-7 min-w-0 flex flex-col rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg overflow-hidden panel-lift">
+            <div className="order-2 xl:order-1 xl:col-span-7 min-w-0 flex flex-col rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg overflow-hidden panel-lift">
               {/* Radar Toolbar Header */}
               <div className="flex flex-wrap items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-900/70">
                 <div className="flex items-center gap-2.5">
@@ -1643,31 +1623,53 @@ export default function Home() {
             </div>
 
             {/* RIGHT: AI CONVERSATIONAL REASONING TERMINAL (5 COLS) */}
-            <div className="xl:col-span-5 min-w-0 flex flex-col h-[520px] rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg overflow-hidden panel-lift">
+            <div className="order-1 xl:order-2 xl:col-span-5 min-w-0 flex flex-col h-[70vh] max-h-[560px] min-h-[420px] xl:h-[520px] rounded-2xl border border-slate-800 bg-[#0b1322] shadow-lg overflow-hidden panel-lift">
               {/* Terminal Header */}
-              <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-900/70">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400">
+              <div className="flex items-start justify-between gap-2 border-b border-slate-800 px-4 py-3 bg-slate-900/70 sm:px-5 sm:py-3.5">
+                <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400">
                     <Bot className="h-4 w-4" />
                   </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                      {t("coPilot")}
-                      {loading && <span className="text-[10px] text-sky-400 font-normal">{t("analyzing")}</span>}
+                  <div className="min-w-0">
+                    <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                      <span className="truncate">{t("coPilot")}</span>
+                      {loading && <span className="shrink-0 text-[10px] font-normal text-sky-400">{t("analyzing")}</span>}
                     </h3>
-                    <p className="text-[10px] font-mono text-slate-400">
+                    {/* Dropped on phones — it wrapped to three lines and ran
+                        under the controls beside it. */}
+                    <p className="hidden font-mono text-[10px] text-slate-400 sm:block">
                       Explainable Multi-Agent Synthesis
                     </p>
                   </div>
                 </div>
 
-                {/* Evidence & Why Explanation Button */}
-                <button
-                  onClick={() => setWhyEvidenceOpen(true)}
-                  className="px-2.5 py-1 rounded-md text-[11px] font-medium text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 transition border border-sky-500/20 flex items-center gap-1.5"
-                >
-                  <BookOpen className="h-3 w-3 text-sky-400" /> {t("whyEvidence")}
-                </button>
+                {/* Evidence, and the reply language directly under it: both
+                    are properties of the conversation, so they belong on the
+                    co-pilot rather than in the global header. */}
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <button
+                    onClick={() => setWhyEvidenceOpen(true)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-300 transition hover:bg-sky-500/20"
+                  >
+                    <BookOpen className="h-3 w-3 text-sky-400" /> {t("whyEvidence")}
+                  </button>
+
+                  <label className="flex w-full items-center justify-end gap-1.5 rounded-md border border-slate-800 bg-slate-900 px-2 py-1">
+                    <Sparkles className="h-3 w-3 shrink-0 text-slate-500" />
+                    <select
+                      value={selectedLanguage}
+                      onChange={(event) => setSelectedLanguage(event.target.value)}
+                      aria-label="Reply language"
+                      className="cursor-pointer border-0 bg-transparent text-[10px] font-semibold text-slate-300 outline-none"
+                    >
+                      {LANGUAGES.map((language) => (
+                        <option key={language.code} value={language.code} className="bg-slate-900">
+                          {language.native}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               </div>
 
               {/* Chat Stream Feed */}
