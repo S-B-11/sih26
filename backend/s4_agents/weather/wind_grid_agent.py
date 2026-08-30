@@ -3,6 +3,8 @@ import math
 from datetime import datetime
 import requests
 
+from data_sources.response_cache import fetch_with_fallback
+
 
 # =========================================================
 # ORCA WIND GRID AGENT
@@ -82,9 +84,17 @@ def fetch_wind_grid(
     }
 
     try:
-        response = requests.get(WIND_FORECAST_URL, params=params, timeout=12)
-        response.raise_for_status()
-        api_data = response.json()
+        # Cached like the other upstream calls, so the animated wind layer
+        # keeps drawing on a dead network instead of being the one panel
+        # that goes blank.
+        def _live():
+            response = requests.get(WIND_FORECAST_URL, params=params, timeout=10)
+            response.raise_for_status()
+            return response.json()
+
+        api_data, _cached, _cached_at = fetch_with_fallback(
+            "wind_grid", latitude, longitude, _live, extra=str(span_deg)
+        )
 
     except (requests.RequestException, ValueError) as error:
 

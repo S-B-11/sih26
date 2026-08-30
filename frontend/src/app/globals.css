@@ -1032,3 +1032,29 @@ button:not(:disabled) {
   stroke-dasharray: 2000;
   animation: map-route-draw 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* Explains why the thermal/productivity field disappears when zoomed past
+   the resolution of the model behind it. */
+.orca-field-note {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 78%;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.9);
+  color: #cbd5e1;
+  font: 500 10px/1.4 "JetBrains Mono", ui-monospace, monospace;
+  text-align: center;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.theme-light .orca-field-note {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(15, 70, 80, 0.18);
+  color: #12363e;
+}

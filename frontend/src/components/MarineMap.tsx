@@ -964,11 +964,15 @@ function ScalarFieldLayer({
   min,
   max,
   opacity = 0.8,
+  onFadedChange,
 }: {
   points: FieldPoint[];
   min: number;
   max: number;
   opacity?: number;
+  // Told when the field hides itself, so the caller can say why rather
+  // than leaving the user looking at a layer that appears broken.
+  onFadedChange?: (faded: boolean) => void;
 }) {
   const map = useMap();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1000,6 +1004,7 @@ function ScalarFieldLayer({
           : Math.max(0, 1 - (zoom - FIELD_FULL_ZOOM) / (FIELD_HIDE_ZOOM - FIELD_FULL_ZOOM));
 
       canvas.style.opacity = String(opacity * zoomFade);
+      onFadedChange?.(zoomFade <= 0);
 
       if (zoomFade <= 0) {
         canvas.width = size.x;
@@ -1092,7 +1097,7 @@ function ScalarFieldLayer({
       }
       canvasRef.current = null;
     };
-  }, [points, min, max, opacity, map]);
+  }, [points, min, max, opacity, map, onFadedChange]);
 
   return null;
 }
@@ -1119,6 +1124,7 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
   const windGrid = useWindGrid(activeLayer === "wind", center.lat, center.lon);
   const pfzLayer = usePfzLayer(activeLayer === "pfz", center.lat, center.lon, pfz);
   const sstGrid = useSstGrid(activeLayer === "thermal", center.lat, center.lon);
+  const [fieldFaded, setFieldFaded] = useState(false);
 
   const isBathymetry = activeLayer === "bathymetry";
 
@@ -1202,6 +1208,15 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
         );
       })()}
 
+      {/* Say why the field vanished, so the empty layer does not read as a
+          failure. */}
+      {fieldFaded && (activeLayer === "thermal" || activeLayer === "pfz") && (
+        <div className="orca-field-note">
+          {activeLayer === "thermal" ? "Sea temperature" : "Productivity"} is modelled at
+          about 22 km — zoom out to see the field
+        </div>
+      )}
+
       <ScaleControl />
       <BasemapControl basemap={basemap} setBasemap={setBasemap} disabled={isBathymetry} />
       <MapRecenterControls
@@ -1248,6 +1263,7 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
           }))}
           min={sstGrid.min}
           max={sstGrid.max}
+          onFadedChange={setFieldFaded}
         />
       )}
 
@@ -1291,6 +1307,7 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
             min={Math.min(...pfzLayer.candidates.map((c) => c.score))}
             max={Math.max(...pfzLayer.candidates.map((c) => c.score))}
             opacity={0.62}
+            onFadedChange={setFieldFaded}
           />
 
           <Circle
