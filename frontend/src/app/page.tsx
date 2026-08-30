@@ -278,7 +278,33 @@ const COASTAL_SECTORS = [
 // maritime state and union territory. Kept as a static list rather than
 // a geocoding API call so the picker still works offline during a demo
 // (any point not listed can still be entered as raw coordinates).
-type PickerLocation = { name: string; state: string; latitude: number; longitude: number };
+type PickerLocation = {
+  name: string;
+  state: string;
+  latitude: number;
+  longitude: number;
+  // What the place actually is ("town", "port", "lighthouse", "college"),
+  // so two results with the same name are told apart at a glance.
+  kind?: string;
+};
+
+// minLon,minLat,maxLon,maxLat covering India including the Andamans and
+// Lakshadweep — Photon's own lat/lon bias is too weak to keep results in
+// the country on its own.
+const INDIA_BBOX = "68.0,6.5,97.5,35.7";
+
+type PhotonFeature = {
+  geometry?: { coordinates?: [number, number] };
+  properties?: {
+    name?: string;
+    city?: string;
+    county?: string;
+    district?: string;
+    state?: string;
+    country?: string;
+    osm_value?: string;
+  };
+};
 
 const INDIAN_LOCATIONS: PickerLocation[] = [
   // Gujarat
@@ -453,6 +479,10 @@ export default function Home() {
     tone: "ok" | "warn" | "error";
     text: string;
   } | null>(null);
+
+  // Name of the position that turned out to be non-coastal, shown as a
+  // modal. Null when the current position is fine.
+  const [inlandWarning, setInlandWarning] = useState<string | null>(null);
 
   // A coarse fix waiting to be confirmed or corrected, rather than being
   // applied silently as if it were the user's actual position.
@@ -785,17 +815,15 @@ export default function Home() {
           const isMarine = data.agents?.geospatial?.is_marine;
           const placeName = data.location?.name ?? "This position";
 
-          setLocationNotice(
-            isMarine === false
-              ? {
-                  tone: "warn",
-                  text: `${placeName} is inland. Marine models return no data here, so sea state, PFZ and safety scoring are unavailable — pick a coastal sector for a full briefing.`,
-                }
-              : {
-                  tone: "ok",
-                  text: `${placeName} is a marine position — live sea state, PFZ and safety data available.`,
-                },
-          );
+          if (isMarine === false) {
+            // Only non-coastal positions are worth interrupting for: it
+            // changes what the console can tell you. A coastal pick needs no
+            // announcement — the gauges filling in already say it worked.
+            setInlandWarning(placeName);
+            setLocationNotice(null);
+          } else {
+            setLocationNotice(null);
+          }
         }
 
         const synthResponse = data.response?.response || tab(selectedLanguage, "analysisCompleted");
@@ -877,6 +905,7 @@ export default function Home() {
 
     // Silent: choosing a sector refreshes the dashboard, it does not ask a
     // question, so nothing is written to the conversation.
+    setInlandWarning(null);
     setLocationNotice({ tone: "ok", text: `Loading data for ${loc.name}...` });
     askORCA(LOCATION_BRIEFING_QUERY, loc, { silent: true });
   };
@@ -965,15 +994,17 @@ export default function Home() {
     );
   })();
 
-  // The built-in list only covers ports and coastal towns. Anything else in
-  // the country — inland districts, villages, a college campus — comes from
-  // Open-Meteo's geocoder, which needs no API key. The static list is still
-  // searched first and shown instantly, so the picker keeps working with no
-  // network (which is the case that matters during a demo).
+  // The built-in list only covers ports and coastal towns, so everything
+  // else in the country comes from Photon (photon.komoot.io) — an OSM
+  // geocoder built for type-ahead, needing no API key. Chosen over
+  // Open-Meteo's geocoder, which only returns populated places: Photon also
+  // finds ports, jetties, lighthouses, colleges and villages, which is what
+  // people actually search for here. A bounding box pins results to India;
+  // its lat/lon bias alone was weak enough to return results in Iraq.
   useEffect(() => {
     const term = locationSearch.trim();
 
-    if (term.length < 3) {
+    if (term.length < 2) {
       setRemoteMatches([]);
       setSearching(false);
       return;
@@ -985,30 +1016,49 @@ export default function Home() {
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(term)}&count=20&country=IN&language=en&format=json`,
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(term)}&limit=15&lang=en&bbox=${INDIA_BBOX}`,
           { signal: controller.signal },
         );
         const data = await res.json();
 
-        const seen = new Set(localMatches.map((l) => l.name.toLowerCase()));
+        const seen = new Set(localMatches.map((l) => `${l.name.toLowerCase()}`));
 
-        setRemoteMatches(
-          (data?.results ?? [])
-            .filter((r: { name?: string }) => r.name && !seen.has(r.name.toLowerCase()))
-            .map((r: { name: string; admin1?: string; country?: string; latitude: number; longitude: number }) => ({
-              name: r.name,
-              state: r.admin1 ?? r.country ?? "India",
-              latitude: r.latitude,
-              longitude: r.longitude,
-            })),
-        );
+        const mapped: PickerLocation[] = (data?.features ?? [])
+          .map((f: PhotonFeature) => {
+            const p = f.properties ?? {};
+            const [lon, lat] = f.geometry?.coordinates ?? [];
+            if (typeof lat !== "number" || typeof lon !== "number" || !p.name) return null;
+
+            // Prefer the most specific administrative context available, so
+            // three same-named villages are distinguishable.
+            const area = [p.city, p.county, p.district].filter(Boolean)[0];
+
+            return {
+              name: p.name,
+              state: [area, p.state].filter(Boolean).join(", ") || p.country || "India",
+              latitude: lat,
+              longitude: lon,
+              kind: p.osm_value && p.osm_value !== "yes" ? p.osm_value.replace(/_/g, " ") : undefined,
+            } as PickerLocation;
+          })
+          .filter((l: PickerLocation | null): l is PickerLocation => l !== null)
+          .filter((l: PickerLocation) => !seen.has(l.name.toLowerCase()));
+
+        // Photon can return the same feature more than once at different
+        // zoom levels; collapse by name + rounded position.
+        const unique = new Map<string, PickerLocation>();
+        for (const l of mapped) {
+          unique.set(`${l.name}|${l.latitude.toFixed(3)}|${l.longitude.toFixed(3)}`, l);
+        }
+
+        setRemoteMatches([...unique.values()].slice(0, 12));
       } catch {
         // Offline or blocked — the static list above still answers.
         setRemoteMatches([]);
       } finally {
         setSearching(false);
       }
-    }, 300);
+    }, 250);
 
     return () => {
       controller.abort();
@@ -1892,6 +1942,73 @@ export default function Home() {
         </div>
       )}
 
+      {/* Non-coastal position: worth interrupting for, because it changes
+          what the console is able to report. Coastal picks say nothing. */}
+      {inlandWarning && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+          onClick={() => setInlandWarning(null)}
+        >
+          <div
+            className="settings-panel w-full max-w-md overflow-hidden rounded-3xl border border-amber-500/30 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-4 border-b border-amber-500/20 bg-amber-500/10 px-6 py-5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-300">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-300/80">
+                  Non-coastal position
+                </p>
+                <h2 className="mt-1 truncate text-lg font-bold text-white">{inlandWarning}</h2>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <p className="text-xs leading-relaxed text-slate-300">
+                This position is not at sea. Marine forecast models cover water only, so
+                there are no readings here for:
+              </p>
+
+              <ul className="space-y-1.5 text-xs text-slate-400">
+                {["Sea surface temperature", "Wave height and sea state", "Potential Fishing Zones", "Operational safety scoring"].map(
+                  (item) => (
+                    <li key={item} className="flex items-center gap-2">
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-amber-400" />
+                      {item}
+                    </li>
+                  ),
+                )}
+              </ul>
+
+              <p className="text-xs leading-relaxed text-slate-300">
+                Wind and weather are atmospheric, so those still apply. For a full
+                briefing, choose a coastal sector.
+              </p>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setInlandWarning(null)}
+                  className="flex-1 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-300 transition hover:border-slate-600 hover:text-white"
+                >
+                  Stay here
+                </button>
+                <button
+                  onClick={() => {
+                    setInlandWarning(null);
+                    setLocationPickerOpen(true);
+                  }}
+                  className="flex-1 rounded-xl bg-sky-500 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-sky-400"
+                >
+                  Pick a coastal sector
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {locationPickerOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
@@ -2067,7 +2184,7 @@ export default function Home() {
                   {localMatches.length === 0 && remoteMatches.length === 0 && !searching ? (
                     <p className="px-1 py-3 text-[11px] text-slate-400">
                       {locationSearch.trim().length < 3
-                        ? "Type at least 3 letters to search the whole country."
+                        ? "Type at least 2 letters to search anywhere in India."
                         : "No match. Enter coordinates above for any point not listed."}
                     </p>
                   ) : (
@@ -2103,11 +2220,18 @@ export default function Home() {
                           className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-sky-500/40 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <span className="min-w-0">
-                            <span className="block truncate text-xs font-medium text-slate-200">{loc.name}</span>
+                            <span className="flex items-center gap-1.5">
+                              <span className="truncate text-xs font-medium text-slate-200">{loc.name}</span>
+                              {loc.kind && (
+                                <span className="shrink-0 rounded border border-slate-700 px-1 py-px text-[9px] font-mono uppercase tracking-wide text-slate-400">
+                                  {loc.kind}
+                                </span>
+                              )}
+                            </span>
                             <span className="block truncate text-[10px] text-slate-400">{loc.state}</span>
                           </span>
                           <span className="shrink-0 font-mono text-[10px] text-slate-500">
-                            {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
+                            {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
                           </span>
                         </button>
                       ))}
