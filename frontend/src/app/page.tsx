@@ -540,6 +540,7 @@ export default function Home() {
       whyExplanation?: string[];
       citations?: any[];
       geofenceStatus?: string;
+      agentTrace?: Array<{ agent_name: string; status: string; duration_ms: number; detail?: string }>;
     }>
   >([
     {
@@ -842,6 +843,7 @@ export default function Home() {
               whyExplanation: data.response?.why_explanation || [],
               citations: data.response?.citations || [],
               geofenceStatus: data.agents?.geospatial?.status || "NORMAL",
+              agentTrace: data.agent_trace ?? [],
             },
           ]);
 
@@ -1475,15 +1477,6 @@ export default function Home() {
           {/* =====================================================
               METRICS TELEMETRY CARDS (LAYER 5 SYNTHESIZED METRICS)
           ====================================================== */}
-          {/* Multi-agent collaboration — the problem statement's top scored
-              requirement, so it sits above the fold rather than behind the
-              Agent Pipeline tab where judges would have to go looking. */}
-          <LiveAgentTrace
-            trace={orcaData?.agent_trace ?? []}
-            loading={loading}
-            plannedAgents={orcaData?.plan?.agents_required ?? []}
-          />
-
           {/* Telemetry strip. These were four full-height cards holding the
               best position on the page; they are supporting readings, not the
               thing that distinguishes this project, so they compress to one
@@ -1699,6 +1692,39 @@ export default function Home() {
                       >
                         <p className="whitespace-pre-line">{msg.text}</p>
 
+                        {/* Which specialists actually produced this answer, with
+                            their real durations. Kept with the message rather
+                            than in a standing panel, so the collaboration is
+                            evidence attached to a claim. */}
+                        {!isUser && msg.agentTrace && msg.agentTrace.length > 0 && (
+                          <details className="mt-2.5 rounded-lg border border-slate-800 bg-slate-950/50">
+                            <summary className="cursor-pointer list-none px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-400 hover:text-sky-300">
+                              {msg.agentTrace.length} agents &middot; how this answer was built
+                            </summary>
+                            <div className="space-y-1 border-t border-slate-800 px-2.5 py-2">
+                              {msg.agentTrace.map((step, stepIndex) => (
+                                <div
+                                  key={`${step.agent_name}-${stepIndex}`}
+                                  className="flex items-baseline gap-2 text-[10px]"
+                                >
+                                  <span className="w-3 shrink-0 font-mono text-slate-600">
+                                    {stepIndex + 1}
+                                  </span>
+                                  <span className="w-16 shrink-0 font-semibold capitalize text-slate-200">
+                                    {step.agent_name}
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate text-slate-400">
+                                    {step.detail}
+                                  </span>
+                                  <span className="shrink-0 font-mono text-slate-500">
+                                    {step.duration_ms.toFixed(0)}ms
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+
                         {!isUser && index === chatHistory.length - 1 && (
                           <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
                             <span className="font-mono text-[10px] text-sky-400">
@@ -1729,18 +1755,7 @@ export default function Home() {
                   );
                 })}
 
-                {loading && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900 border border-slate-800 max-w-[85%] text-slate-300">
-                    <div className="flex gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-bounce" />
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-bounce [animation-delay:150ms]" />
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-bounce [animation-delay:300ms]" />
-                    </div>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Correlating satellite Earth observations & weather vectors...
-                    </span>
-                  </div>
-                )}
+                {loading && <AgentFlowThinking />}
                 <div ref={chatEndRef} />
               </div>
 
@@ -2450,122 +2465,89 @@ function AnimatedNumber({ value, decimals = 1 }: { value: number; decimals?: num
 }
 
 // =========================================================
-// LIVE AGENT TRACE
+// AGENT FLOW — "thinking" animation
 //
-// The problem statement asks for multi-agent collaboration to be
-// *demonstrated*, so this shows the specialists the planner actually
-// picked for the current query and how long each took — filling in as
-// they finish, rather than a fixed diagram that looks the same whatever
-// was asked.
+// Shown inside the conversation while a query is in flight. The problem
+// statement asks for multi-agent collaboration to be demonstrated, and the
+// honest place to demonstrate it is at the moment it happens, rather than
+// as a permanent panel competing with the answer for space.
+//
+// The stages are the pipeline's real shape. Progress is animated rather
+// than streamed — the backend returns its timings only once the whole
+// query completes — so nothing here claims a duration. Real per-agent
+// timings appear on the finished message.
 // =========================================================
 
-const AGENT_LABELS: Record<string, { label: string; task: string }> = {
-  planner:    { label: "Planner",    task: "Decomposes the question, picks specialists" },
-  marine:     { label: "Marine",     task: "SST, wave height, sea state" },
-  weather:    { label: "Weather",    task: "Wind, forecast, hazards" },
-  pfz:        { label: "PFZ",        task: "Fishing zone search" },
-  geospatial: { label: "Geofence",   task: "EEZ, MPA and restricted zones" },
-  risk:       { label: "Risk",       task: "Weighted safety score" },
-  route:      { label: "Route",      task: "Hazard-aware waypoints" },
-  synthesis:  { label: "Synthesis",  task: "Evidence-cited answer" },
-};
+const FLOW_STAGES: Array<{ id: string; label: string; detail: string; parallel?: boolean }> = [
+  { id: "planner", label: "Planner", detail: "Reading the question, choosing specialists" },
+  { id: "marine", label: "Marine", detail: "Sea surface temperature, waves, sea state", parallel: true },
+  { id: "weather", label: "Weather", detail: "Wind, forecast, storm and lightning", parallel: true },
+  { id: "pfz", label: "Fishing zones", detail: "Searching the productivity grid", parallel: true },
+  { id: "geospatial", label: "Geofence", detail: "EEZ, protected and restricted waters" },
+  { id: "risk", label: "Risk", detail: "Weighted safety score" },
+  { id: "synthesis", label: "Synthesis", detail: "Composing an evidence-cited answer" },
+];
 
-function LiveAgentTrace({
-  trace,
-  loading,
-  plannedAgents,
-}: {
-  trace: Array<{ agent_name: string; status: string; duration_ms: number; detail?: string }>;
-  loading: boolean;
-  plannedAgents: string[];
-}) {
-  // While a query is in flight, show the planner's selection as pending so
-  // the panel is populated from the first moment rather than empty.
-  const pending = loading
-    ? ["planner", ...plannedAgents.map((a) => a.replace(/_agent$/, "").replace("geo", "geospatial")), "synthesis"]
-    : [];
+function AgentFlowThinking() {
+  const [stage, setStage] = useState(0);
 
-  const rows = loading
-    ? Array.from(new Set(pending)).map((name) => ({
-        agent_name: name,
-        status: "running",
-        duration_ms: 0,
-        detail: AGENT_LABELS[name]?.task ?? "",
-      }))
-    : trace;
-
-  // Wall clock, not the sum of durations: marine, weather and PFZ run
-  // concurrently, so adding them would overstate how long the query took —
-  // in a panel whose whole job is showing the architecture honestly.
-  const PARALLEL = new Set(["marine", "weather", "pfz"]);
-  const ms = (name: string) =>
-    trace.find((r) => r.agent_name === name)?.duration_ms ?? 0;
-
-  const parallelMs = Math.max(0, ...[...PARALLEL].map(ms));
-  const serialMs = trace
-    .filter((r) => !PARALLEL.has(r.agent_name))
-    .reduce((sum, r) => sum + (r.duration_ms || 0), 0);
-  const totalMs = parallelMs + serialMs;
+  useEffect(() => {
+    // Paced so the three parallel agents light together and the whole
+    // sequence reads at conversational speed rather than flickering past.
+    const timer = setInterval(() => {
+      setStage((current) => Math.min(current + 1, FLOW_STAGES.length - 1));
+    }, 420);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-[#0b1322] p-4 shadow-lg">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Cpu className="h-4 w-4 text-sky-400" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-            Multi-agent collaboration
-          </h3>
-          <span className="rounded border border-slate-700 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-slate-400">
-            {loading ? "running" : `${rows.length} agents`}
-          </span>
-        </div>
-        {!loading && totalMs > 0 && (
-          <span className="font-mono text-[10px] text-slate-500">
-            {(totalMs / 1000).toFixed(2)}s wall clock &middot; marine, weather and PFZ ran in parallel
-          </span>
-        )}
+    <div className="max-w-[92%] rounded-xl border border-sky-500/25 bg-slate-900/80 p-3">
+      <div className="flex items-center gap-2">
+        <Cpu className="h-3.5 w-3.5 animate-pulse text-sky-400" />
+        <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300">
+          Agents working
+        </span>
       </div>
 
-      {rows.length === 0 ? (
-        <p className="mt-3 text-[11px] text-slate-500">
-          Ask a question and the specialists that answer it appear here.
-        </p>
-      ) : (
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          {rows.map((row, index) => {
-            const meta = AGENT_LABELS[row.agent_name] ?? { label: row.agent_name, task: "" };
-            const isRunning = row.status !== "done";
-            return (
-              <div
-                key={`${row.agent_name}-${index}`}
-                className={`min-w-[148px] flex-1 rounded-xl border px-3 py-2.5 transition ${
-                  isRunning
-                    ? "border-sky-500/40 bg-sky-500/10 animate-pulse"
-                    : "border-slate-800 bg-slate-900/60"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500">
-                    {index + 1}
-                  </span>
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      isRunning ? "bg-sky-400" : "bg-emerald-400"
-                    }`}
-                  />
-                </div>
-                <p className="mt-1 truncate text-xs font-semibold text-slate-100">{meta.label}</p>
-                <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-400">
-                  {row.detail || meta.task}
-                </p>
-                <p className="mt-1.5 font-mono text-[10px] text-slate-500">
-                  {isRunning ? "working..." : `${row.duration_ms.toFixed(0)} ms`}
-                </p>
+      <div className="mt-2.5 space-y-1.5">
+        {FLOW_STAGES.map((item, index) => {
+          const done = index < stage;
+          const active = index === stage;
+          const pending = index > stage;
+
+          return (
+            <div
+              key={item.id}
+              className={`flex items-start gap-2.5 transition-opacity duration-300 ${
+                pending ? "opacity-30" : "opacity-100"
+              }`}
+            >
+              <div className="flex flex-col items-center pt-0.5">
+                <span
+                  className={`h-2 w-2 rounded-full transition ${
+                    done ? "bg-emerald-400" : active ? "bg-sky-400 animate-ping" : "bg-slate-600"
+                  }`}
+                />
+                {index < FLOW_STAGES.length - 1 && (
+                  <span className={`mt-0.5 h-4 w-px ${done ? "bg-emerald-400/40" : "bg-slate-700"}`} />
+                )}
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              <div className="min-w-0 flex-1 pb-0.5">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200">
+                  {item.label}
+                  {item.parallel && (
+                    <span className="rounded border border-slate-700 px-1 font-mono text-[8px] uppercase tracking-wide text-slate-500">
+                      parallel
+                    </span>
+                  )}
+                </p>
+                <p className="truncate text-[10px] text-slate-400">{item.detail}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
