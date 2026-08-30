@@ -615,11 +615,16 @@ def orca_query(request: QueryRequest):
 
         # Timed record of what actually ran, so the console can show the
         # collaboration rather than assert it. Populated as agents finish.
+        _n_specialists = len(plan.get("agents_required", []))
+
         agent_trace = [{
             "agent_name": "planner",
             "status": "done",
             "duration_ms": round(planner_ms, 1),
-            "detail": f"{len(plan.get('agents_required', []))} specialists selected",
+            "detail": (
+                f"{_n_specialists} specialist"
+                f"{'' if _n_specialists == 1 else 's'} selected"
+            ),
         }]
 
         def _timed(name, fn, *args):
