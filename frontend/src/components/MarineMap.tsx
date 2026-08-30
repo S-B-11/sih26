@@ -447,6 +447,81 @@ function ScaleControl() {
   return null;
 }
 
+type Basemap = "standard" | "satellite" | "terrain" | "ocean";
+
+const BASEMAP_OPTIONS: Array<{ id: Basemap; label: string }> = [
+  { id: "standard", label: "Standard" },
+  { id: "satellite", label: "Satellite" },
+  { id: "terrain", label: "Terrain" },
+  { id: "ocean", label: "Ocean depth" },
+];
+
+// Base-map switcher, in the bottom-left corner the way general-purpose maps
+// place theirs. Distinct from the toolbar above the map, which toggles the
+// data *overlays* (PFZ, SST, wind, geofence) rather than the map underneath.
+function BasemapControl({
+  basemap,
+  setBasemap,
+  disabled,
+}: {
+  basemap: Basemap;
+  setBasemap: (b: Basemap) => void;
+  disabled: boolean;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!wrapRef.current) return;
+    L.DomEvent.disableClickPropagation(wrapRef.current);
+    L.DomEvent.disableScrollPropagation(wrapRef.current);
+  }, []);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="orca-basemap"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="orca-basemap-toggle"
+        title="Map layers"
+      >
+        <span aria-hidden="true">▤</span>
+        <span className="orca-basemap-toggle-label">Layers</span>
+      </button>
+
+      {open && (
+        <div className="orca-basemap-menu">
+          {BASEMAP_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => {
+                setBasemap(opt.id);
+                setOpen(false);
+              }}
+              className={`orca-basemap-item ${basemap === opt.id && !disabled ? "is-active" : ""}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+
+          {disabled && (
+            <p className="orca-basemap-note">
+              The bathymetry overlay is using the ocean basemap. Switch that overlay off
+              to change the map underneath.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // "Recentre" controls. Rendered as ordinary DOM inside the map container
 // rather than as Leaflet controls so they can be styled with the same
 // Tailwind vocabulary as the rest of the console; click/scroll propagation
@@ -747,6 +822,9 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
     accuracyM: number;
   } | null>(null);
 
+  // User's chosen base map, independent of the data overlays.
+  const [basemap, setBasemap] = useState<Basemap>("standard");
+
   const windGrid = useWindGrid(activeLayer === "wind", center.lat, center.lon);
 
   const isBathymetry = activeLayer === "bathymetry";
@@ -770,16 +848,48 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
       minZoom={3}
       maxZoom={17}
     >
-      {isBathymetry ? (
-        // Esri's public Ocean basemap — real depth-shaded bathymetric
-        // tiles, no API key required. Every other layer uses standard
-        // basemap tiles, which don't carry ocean-depth shading at all.
-        <TileLayer
-          attribution="Sources: Esri, GEBCO, NOAA, National Geographic, DeLorme, HERE, Geonames.org, and other contributors"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
-          noWrap
-        />
-      ) : (
+      {/* Base map. `basemap` is the user's own choice from the layers
+          control; the bathymetry *overlay* layer still forces the ocean
+          basemap, since depth shading is the whole point of that view. */}
+      {(() => {
+        const effective = isBathymetry ? "ocean" : basemap;
+
+        if (effective === "satellite") {
+          return (
+            <TileLayer
+              key="satellite"
+              attribution="Imagery &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              noWrap
+            />
+          );
+        }
+
+        if (effective === "terrain") {
+          return (
+            <TileLayer
+              key="terrain"
+              attribution="Tiles &copy; Esri — Esri, DeLorme, NAVTEQ, USGS, NOAA"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+              noWrap
+            />
+          );
+        }
+
+        if (effective === "ocean") {
+          // Esri's public Ocean basemap — real depth-shaded bathymetric
+          // tiles, no API key required. Standard basemaps carry no
+          // ocean-depth shading at all.
+          return (
+            <TileLayer
+              key="ocean"
+              attribution="Sources: Esri, GEBCO, NOAA, National Geographic, DeLorme, HERE, Geonames.org, and other contributors"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
+              noWrap
+            />
+          );
+        }
+
         // CARTO's free basemaps (light_all/dark_all) started watermarking
         // "API KEY REQUIRED" for real browser traffic even though direct
         // fetches still returned clean tiles — the anonymous tier is no
@@ -788,15 +898,19 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
         // free policy, so use those for both themes, and fake a dark
         // basemap with a CSS invert filter (a well-worn technique) instead
         // of depending on a second tile provider for dark mode.
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          className={isLight ? undefined : "orca-tile-dark"}
-          noWrap
-        />
-      )}
+        return (
+          <TileLayer
+            key="standard"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            className={isLight ? undefined : "orca-tile-dark"}
+            noWrap
+          />
+        );
+      })()}
 
       <ScaleControl />
+      <BasemapControl basemap={basemap} setBasemap={setBasemap} disabled={isBathymetry} />
       <MapRecenterControls
         center={center}
         language={language}

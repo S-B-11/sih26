@@ -681,6 +681,96 @@ button:not(:disabled) {
   background: #dfeaf2;
 }
 
+/* Base-map switcher, bottom-left like a general-purpose map's layers card.
+   Sits above the telemetry HUD stack, which starts at bottom:12px. */
+.orca-basemap {
+  position: absolute;
+  left: 12px;
+  bottom: 108px;
+  z-index: 1000;
+}
+
+.orca-basemap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  font: 600 11px/1 "JetBrains Mono", ui-monospace, monospace;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.orca-basemap-toggle:hover {
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #7dd3fc;
+}
+
+.orca-basemap-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 150px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.orca-basemap-item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #cbd5e1;
+  font: 500 11px/1.2 "JetBrains Mono", ui-monospace, monospace;
+  text-align: left;
+  cursor: pointer;
+}
+
+.orca-basemap-item:hover {
+  background: rgba(56, 189, 248, 0.14);
+  color: #e0f2fe;
+}
+
+.orca-basemap-item.is-active {
+  background: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
+  font-weight: 700;
+}
+
+.orca-basemap-note {
+  margin: 4px 6px 2px;
+  color: #94a3b8;
+  font: 400 9px/1.4 "JetBrains Mono", ui-monospace, monospace;
+}
+
+.theme-light .orca-basemap-toggle,
+.theme-light .orca-basemap-menu {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(15, 70, 80, 0.18);
+  color: #12363e;
+}
+
+.theme-light .orca-basemap-item {
+  color: #12363e;
+}
+
+@media (max-width: 640px) {
+  .orca-basemap-toggle-label {
+    display: none;
+  }
+}
+
 /* Recentre controls (back to sector / my location). Stacked top-right,
    clear of the zoom buttons top-left and the telemetry HUD bottom-left. */
 .orca-map-controls {

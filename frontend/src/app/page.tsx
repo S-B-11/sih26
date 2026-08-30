@@ -441,8 +441,18 @@ export default function Home() {
   const [locationSearch, setLocationSearch] = useState("");
   const [manualLat, setManualLat] = useState("");
   const [manualLon, setManualLon] = useState("");
+  const [remoteMatches, setRemoteMatches] = useState<PickerLocation[]>([]);
+  const [searching, setSearching] = useState(false);
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
   const [geoLocating, setGeoLocating] = useState(false);
+
+  // Result of the last location change, shown as a strip under the sector
+  // ribbon. Selecting a place is silent in the chat, so this is the only
+  // feedback that says whether the new position can actually be reported on.
+  const [locationNotice, setLocationNotice] = useState<{
+    tone: "ok" | "warn" | "error";
+    text: string;
+  } | null>(null);
 
   // A coarse fix waiting to be confirmed or corrected, rather than being
   // applied silently as if it were the user's actual position.
@@ -690,7 +700,12 @@ export default function Home() {
     // the exact coordinates, so pass them straight through instead of
     // hoping the backend's planner recognises the name in the query text.
     overrideLocation?: { name: string; latitude: number; longitude: number },
+    // Refresh the dashboard for a new location without writing anything to
+    // the conversation. Choosing a sector is a navigation action, not a
+    // question the user asked, so it should not appear as chat turns.
+    options?: { silent?: boolean },
   ) => {
+    const silent = options?.silent === true;
     const finalQuery = (question ?? query).trim();
     if (!finalQuery || loading) return;
 
@@ -700,15 +715,17 @@ export default function Home() {
     const currentTimeStr = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
     // Add user query to conversation history
-    setChatHistory((prev) => [
-      ...prev,
-      {
-        id: `user-${Date.now()}`,
-        role: "user",
-        text: finalQuery,
-        time: currentTimeStr,
-      },
-    ]);
+    if (!silent) {
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          id: `user-${Date.now()}`,
+          role: "user",
+          text: finalQuery,
+          time: currentTimeStr,
+        },
+      ]);
+    }
 
     const controller = new AbortController();
     // 45s: PFZ-triggering queries run an extra live grid search + a
@@ -760,42 +777,73 @@ export default function Home() {
           windSpeed: data.agents?.weather?.wind?.speed_kmh ?? windSpeed,
           safetyScore: data.agents?.risk?.safety_score ?? safetyScore,
         });
+        // Whether marine models actually cover this position. The backend
+        // reports it explicitly so an inland point is not presented as open
+        // water — say which it is rather than leaving the user to infer it
+        // from empty gauges.
+        if (silent) {
+          const isMarine = data.agents?.geospatial?.is_marine;
+          const placeName = data.location?.name ?? "This position";
+
+          setLocationNotice(
+            isMarine === false
+              ? {
+                  tone: "warn",
+                  text: `${placeName} is inland. Marine models return no data here, so sea state, PFZ and safety scoring are unavailable — pick a coastal sector for a full briefing.`,
+                }
+              : {
+                  tone: "ok",
+                  text: `${placeName} is a marine position — live sea state, PFZ and safety data available.`,
+                },
+          );
+        }
+
         const synthResponse = data.response?.response || tab(selectedLanguage, "analysisCompleted");
 
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            id: `orca-${Date.now()}`,
-            role: "orca",
-            text: synthResponse,
-            time: currentTimeStr,
-            riskLevel: data.agents?.risk?.risk_level || "LOW",
-            safetyScore: data.agents?.risk?.safety_score ?? 95,
-            confidence: data.response?.confidence_score ?? 96.0,
-            whyExplanation: data.response?.why_explanation || [],
-            citations: data.response?.citations || [],
-            geofenceStatus: data.agents?.geospatial?.status || "NORMAL",
-          },
-        ]);
+        if (!silent) {
+          setChatHistory((prev) => [
+            ...prev,
+            {
+              id: `orca-${Date.now()}`,
+              role: "orca",
+              text: synthResponse,
+              time: currentTimeStr,
+              riskLevel: data.agents?.risk?.risk_level || "LOW",
+              safetyScore: data.agents?.risk?.safety_score ?? 95,
+              confidence: data.response?.confidence_score ?? 96.0,
+              whyExplanation: data.response?.why_explanation || [],
+              citations: data.response?.citations || [],
+              geofenceStatus: data.agents?.geospatial?.status || "NORMAL",
+            },
+          ]);
 
-        if (soundEnabled) {
-          speakText(synthResponse);
+          if (soundEnabled) {
+            speakText(synthResponse);
+          }
         }
       } else {
         const errorMsg = data.message || tab(selectedLanguage, "connectionError");
-        setChatHistory((prev) => [
-          ...prev,
-          { id: `orca-${Date.now()}`, role: "orca", text: errorMsg, time: currentTimeStr },
-        ]);
+        if (silent) {
+          setLocationNotice({ tone: "error", text: errorMsg });
+        } else {
+          setChatHistory((prev) => [
+            ...prev,
+            { id: `orca-${Date.now()}`, role: "orca", text: errorMsg, time: currentTimeStr },
+          ]);
+        }
       }
     } catch (error) {
       const isAbort = error instanceof DOMException && error.name === "AbortError";
       console.error("ORCA API Error:", error);
       const fallbackMsg = `⚠️ ${isAbort ? tab(selectedLanguage, "timeoutError") : tab(selectedLanguage, "connectionError")}`;
-      setChatHistory((prev) => [
-        ...prev,
-        { id: `orca-${Date.now()}`, role: "orca", text: fallbackMsg, time: currentTimeStr },
-      ]);
+      if (silent) {
+        setLocationNotice({ tone: "error", text: fallbackMsg });
+      } else {
+        setChatHistory((prev) => [
+          ...prev,
+          { id: `orca-${Date.now()}`, role: "orca", text: fallbackMsg, time: currentTimeStr },
+        ]);
+      }
     } finally {
       clearTimeout(timeout);
       setLoading(false);
@@ -827,7 +875,10 @@ export default function Home() {
       // Storage unavailable — the location still applies for this session.
     }
 
-    askORCA(LOCATION_BRIEFING_QUERY, loc);
+    // Silent: choosing a sector refreshes the dashboard, it does not ask a
+    // question, so nothing is written to the conversation.
+    setLocationNotice({ tone: "ok", text: `Loading data for ${loc.name}...` });
+    askORCA(LOCATION_BRIEFING_QUERY, loc, { silent: true });
   };
 
   const useCurrentLocation = () => {
@@ -906,13 +957,67 @@ export default function Home() {
     applyCustomLocation({ name: `Custom Point (${lat.toFixed(3)}, ${lon.toFixed(3)})`, latitude: lat, longitude: lon });
   };
 
-  const filteredLocations = (() => {
+  const localMatches = (() => {
     const term = locationSearch.trim().toLowerCase();
     if (!term) return INDIAN_LOCATIONS;
     return INDIAN_LOCATIONS.filter(
       (l) => l.name.toLowerCase().includes(term) || l.state.toLowerCase().includes(term),
     );
   })();
+
+  // The built-in list only covers ports and coastal towns. Anything else in
+  // the country — inland districts, villages, a college campus — comes from
+  // Open-Meteo's geocoder, which needs no API key. The static list is still
+  // searched first and shown instantly, so the picker keeps working with no
+  // network (which is the case that matters during a demo).
+  useEffect(() => {
+    const term = locationSearch.trim();
+
+    if (term.length < 3) {
+      setRemoteMatches([]);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const controller = new AbortController();
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(term)}&count=20&country=IN&language=en&format=json`,
+          { signal: controller.signal },
+        );
+        const data = await res.json();
+
+        const seen = new Set(localMatches.map((l) => l.name.toLowerCase()));
+
+        setRemoteMatches(
+          (data?.results ?? [])
+            .filter((r: { name?: string }) => r.name && !seen.has(r.name.toLowerCase()))
+            .map((r: { name: string; admin1?: string; country?: string; latitude: number; longitude: number }) => ({
+              name: r.name,
+              state: r.admin1 ?? r.country ?? "India",
+              latitude: r.latitude,
+              longitude: r.longitude,
+            })),
+        );
+      } catch {
+        // Offline or blocked — the static list above still answers.
+        setRemoteMatches([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+    // localMatches is derived from locationSearch, so keying on the term
+    // alone avoids re-running this on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationSearch]);
 
   // Data helpers
   const marine = orcaData?.agents?.marine;
@@ -940,6 +1045,12 @@ export default function Home() {
   const riskLevel = risk?.risk_level ?? "LOW";
   const safetyScore = risk?.safety_score ?? 95;
   const confidenceScore = orcaData?.response?.confidence_score ?? 96.0;
+
+  // Marine models cover water only; the backend says outright when a
+  // position is not at sea. Every metric below falls back to a demo number
+  // when its reading is null, so without this the cards would show the
+  // previous sector's values as if they were live for an inland point.
+  const isMarinePosition = geo?.is_marine !== false;
 
   const locationName = location?.name ?? "Mumbai Waters (Arabian Sea)";
   const latitude = location?.latitude ?? 19.076;
@@ -1229,7 +1340,13 @@ export default function Home() {
                   return (
                     <button
                       key={sector.id}
-                      onClick={() => askORCA(sector.query)}
+                      onClick={() =>
+                        applyCustomLocation({
+                          name: sector.name,
+                          latitude: sector.lat,
+                          longitude: sector.lon,
+                        })
+                      }
                       className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
                         isSelected
                           ? "bg-sky-500/15 text-sky-300 border-sky-500/40 shadow-sm font-semibold"
@@ -1257,6 +1374,35 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Whether the selected position can actually be reported on. */}
+          {locationNotice && (
+            <div
+              className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-2.5 text-[11px] leading-relaxed ${
+                locationNotice.tone === "warn"
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                  : locationNotice.tone === "error"
+                    ? "border-rose-500/30 bg-rose-500/10 text-rose-200"
+                    : "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+              }`}
+            >
+              <span className="flex items-start gap-2">
+                {locationNotice.tone === "warn" ? (
+                  <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <MapPin className="mt-px h-3.5 w-3.5 shrink-0" />
+                )}
+                <span>{locationNotice.text}</span>
+              </span>
+              <button
+                onClick={() => setLocationNotice(null)}
+                className="shrink-0 rounded p-0.5 opacity-70 transition hover:opacity-100"
+                aria-label="Dismiss"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+
           {/* =====================================================
               METRICS TELEMETRY CARDS (LAYER 5 SYNTHESIZED METRICS)
           ====================================================== */}
@@ -1265,6 +1411,7 @@ export default function Home() {
             <MetricsCard
               title={t("seaTemperature") + " (SST)"}
               value={seaTemperature}
+              unavailable={!isMarinePosition}
               unit=" °C"
               decimals={1}
               subtitle="Open-Meteo & ISRO Earth Observation"
@@ -1291,6 +1438,7 @@ export default function Home() {
             <MetricsCard
               title={t("waveHeight")}
               value={waveHeight}
+              unavailable={!isMarinePosition}
               unit=" m"
               decimals={2}
               subtitle={`Period ${wavePeriod}s • Direction ${waveDirection}°`}
@@ -1338,6 +1486,7 @@ export default function Home() {
             <MetricsCard
               title={t("safetyScore")}
               value={safetyScore}
+              unavailable={!isMarinePosition}
               unit="/100"
               decimals={0}
               subtitle={`Risk: ${riskLevel} • Confidence: ${confidenceScore.toFixed(1)}%`}
@@ -1453,7 +1602,13 @@ export default function Home() {
                       <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
                       <span>{hud(selectedLanguage, "range")}</span>
                     </div>
-                    <div>{hud(selectedLanguage, "sstSwell", { sst: seaTemperature, wave: waveHeight, period: wavePeriod })}</div>
+                    {isMarinePosition ? (
+                      <div>{hud(selectedLanguage, "sstSwell", { sst: seaTemperature, wave: waveHeight, period: wavePeriod })}</div>
+                    ) : (
+                      // Wind is atmospheric and still valid inland; sea state
+                      // is not, so don't print the previous sector's numbers.
+                      <div className="text-slate-500">No marine data at this position</div>
+                    )}
                     <div>{hud(selectedLanguage, "wind", { speed: windSpeed, dir: windDir, deg: windDeg })}</div>
                   </div>
 
@@ -1909,27 +2064,58 @@ export default function Home() {
                 </div>
 
                 <div className="mt-3 max-h-56 space-y-1 overflow-y-auto scrollbar-thin">
-                  {filteredLocations.length === 0 ? (
+                  {localMatches.length === 0 && remoteMatches.length === 0 && !searching ? (
                     <p className="px-1 py-3 text-[11px] text-slate-400">
-                      No match. Enter coordinates above for any point not listed.
+                      {locationSearch.trim().length < 3
+                        ? "Type at least 3 letters to search the whole country."
+                        : "No match. Enter coordinates above for any point not listed."}
                     </p>
                   ) : (
-                    filteredLocations.map((loc) => (
-                      <button
-                        key={`${loc.name}-${loc.latitude}`}
-                        onClick={() => applyCustomLocation(loc)}
-                        disabled={loading}
-                        className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-sky-500/40 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate text-xs font-medium text-slate-200">{loc.name}</span>
-                          <span className="block truncate text-[10px] text-slate-400">{loc.state}</span>
-                        </span>
-                        <span className="shrink-0 font-mono text-[10px] text-slate-500">
-                          {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
-                        </span>
-                      </button>
-                    ))
+                    <>
+                      {localMatches.map((loc) => (
+                        <button
+                          key={`local-${loc.name}-${loc.latitude}`}
+                          onClick={() => applyCustomLocation(loc)}
+                          disabled={loading}
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-sky-500/40 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-medium text-slate-200">{loc.name}</span>
+                            <span className="block truncate text-[10px] text-slate-400">{loc.state}</span>
+                          </span>
+                          <span className="shrink-0 font-mono text-[10px] text-slate-500">
+                            {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
+                          </span>
+                        </button>
+                      ))}
+
+                      {remoteMatches.length > 0 && (
+                        <p className="px-3 pt-2 pb-1 text-[9px] font-mono uppercase tracking-wider text-slate-500">
+                          Elsewhere in India
+                        </p>
+                      )}
+
+                      {remoteMatches.map((loc) => (
+                        <button
+                          key={`remote-${loc.name}-${loc.latitude}`}
+                          onClick={() => applyCustomLocation(loc)}
+                          disabled={loading}
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-sky-500/40 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-medium text-slate-200">{loc.name}</span>
+                            <span className="block truncate text-[10px] text-slate-400">{loc.state}</span>
+                          </span>
+                          <span className="shrink-0 font-mono text-[10px] text-slate-500">
+                            {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {searching && (
+                    <p className="px-1 py-2 text-[10px] font-mono text-slate-500">Searching India...</p>
                   )}
                 </div>
               </section>
@@ -2172,6 +2358,7 @@ function MetricsCard({
   badge,
   badgeColor,
   footer,
+  unavailable = false,
 }: {
   title: string;
   value: number;
@@ -2182,6 +2369,10 @@ function MetricsCard({
   badge: string;
   badgeColor: string;
   footer?: ReactNode;
+  // No reading exists for this position (e.g. an inland point, where the
+  // marine models return nothing). Show that, rather than the previous
+  // sector's number, which would read as a live measurement.
+  unavailable?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-[#0b1322] p-5 shadow-sm hover:border-slate-700 hover:-translate-y-0.5 hover:shadow-lg transition duration-200 flex flex-col justify-between metric-card">
@@ -2195,11 +2386,17 @@ function MetricsCard({
 
         <div className="mt-4">
           <p className="text-[11px] text-slate-400 font-medium tracking-wide uppercase">{title}</p>
-          <p className="text-2xl font-bold text-white tracking-tight mt-0.5 tabular-nums">
-            <AnimatedNumber value={value} decimals={decimals} />
-            {unit}
+          {unavailable ? (
+            <p className="text-2xl font-bold tracking-tight mt-0.5 text-slate-600">—</p>
+          ) : (
+            <p className="text-2xl font-bold text-white tracking-tight mt-0.5 tabular-nums">
+              <AnimatedNumber value={value} decimals={decimals} />
+              {unit}
+            </p>
+          )}
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {unavailable ? "No data for this position" : subtitle}
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
         </div>
       </div>
 
