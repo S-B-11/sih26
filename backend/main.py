@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional
 
 from fastapi import FastAPI, HTTPException
@@ -601,18 +602,35 @@ def orca_query(request: QueryRequest):
         # Therefore pass planner's time context.
         #
 
-        marine = analyze_marine_conditions(
+        # Marine, weather and PFZ are independent of each other and all
+        # I/O-bound, so running them one after another just adds their
+        # network waits together. Fire them at once and take the slowest.
+        # This is also the "parallel execution" the workflow diagram shows.
+        wants_pfz = "pfz_agent" in plan.get("agents_required", [])
 
-            latitude,
+        with ThreadPoolExecutor(max_workers=3) as pool:
 
-            longitude,
+            marine_future = pool.submit(
+                analyze_marine_conditions, latitude, longitude, time_context
+            )
+            weather_future = pool.submit(
+                weather_agent, latitude, longitude, time_context
+            )
+            pfz_future = (
+                pool.submit(
+                    find_potential_fishing_zone, latitude, longitude, time_context
+                )
+                if wants_pfz
+                else None
+            )
 
-            time_context
-        )
+            marine = marine_future.result()
+            weather = weather_future.result()
+            pfz = pfz_future.result() if pfz_future else None
 
 
         # =================================================
-        # STEP 7 - WEATHER AGENT
+        # STEP 7 - WEATHER AGENT (gathered above)
         # =================================================
         #
         # weather_agent signature:
@@ -626,16 +644,6 @@ def orca_query(request: QueryRequest):
         # Pass time_context so wind data is fetched
         # for the requested time period.
         #
-
-        weather = weather_agent(
-
-            latitude,
-
-            longitude,
-
-            time_context
-        )
-
 
         # =================================================
         # STEP 8 - GEO AGENT
@@ -671,18 +679,7 @@ def orca_query(request: QueryRequest):
         # several extra live data calls)
         # =================================================
 
-        pfz = None
-
-        if "pfz_agent" in plan.get("agents_required", []):
-
-            pfz = find_potential_fishing_zone(
-
-                latitude,
-
-                longitude,
-
-                time_context
-            )
+        # (pfz gathered in the parallel block above)
 
 
         # =================================================

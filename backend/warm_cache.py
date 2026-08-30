@@ -21,6 +21,9 @@ from s4_agents.weather.weather_agent import weather_agent
 # The sectors the dashboard ships with, plus anywhere the demo script goes.
 # Add a coordinate here and it is covered too.
 SECTORS = [
+    # The backend's own fallback position, used whenever a query names
+    # no location — the single most likely coordinate in a demo.
+    ("Default (Mumbai coastal waters)", 19.05, 72.80),
     ("Mumbai Harbour", 19.0760, 72.8777),
     ("Goa Fishery Zone", 15.2993, 74.1240),
     ("Gulf of Mannar", 9.1500, 79.1200),

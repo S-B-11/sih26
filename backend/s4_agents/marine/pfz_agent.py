@@ -2,7 +2,13 @@ from typing import Dict, List, Optional, Union
 import math
 import requests
 
-from data_sources.response_cache import fetch_with_fallback
+import time
+
+from data_sources.response_cache import (
+    fetch_with_fallback,
+    load as cache_load,
+    store as cache_store,
+)
 
 from s4_agents.marine.marine_agent import (
     MARINE_API_URL,
@@ -46,15 +52,35 @@ SST_FAVOURABLE_MAX = 30.5
 
 def _fetch_chlorophyll(latitude: float, longitude: float) -> Optional[float]:
     """
-    Best-effort chlorophyll-a (mg/m3) lookup from NOAA ERDDAP (a monthly
-    MODIS Aqua composite, not a live reading).
+    Best-effort chlorophyll-a (mg/m3) from NOAA ERDDAP (a monthly MODIS Aqua
+    composite, not a live reading). Returns None when unavailable, and the
+    PFZ estimate degrades to SST-only.
 
-    This endpoint has been observed taking 8-9s to respond even when it
-    succeeds, which is too slow to sit on the critical path of a
-    conversational request. Kept to a short timeout so a slow/unreachable
-    response degrades the PFZ estimate to SST-only instead of stalling
-    the whole /api/orca call. Returns None on any failure.
+    This endpoint is slow and frequently returns nothing. Two consequences
+    are handled here rather than paid on every request:
+
+    * `timeout` in requests is per phase, not a total budget — a bare
+      timeout=3 was measured at 6.8s wall clock. A tuple bounds each phase.
+    * A failure is cached like a success. Without that, a sector where the
+      endpoint is down pays the full timeout on every single query, which
+      was ~90% of the PFZ agent's runtime. The short TTL means a recovered
+      endpoint is picked up again rather than written off forever.
     """
+
+    NEGATIVE_TTL_S = 6 * 3600
+    POSITIVE_TTL_S = 7 * 24 * 3600
+
+    cached = cache_load("chlorophyll", latitude, longitude, max_age_s=POSITIVE_TTL_S)
+
+    if cached is not None:
+        value = cached.get("payload")
+        # A cached miss is only honoured for the shorter window.
+        if value is not None:
+            return value
+        if (time.time() - float(cached.get("cached_at", 0))) <= NEGATIVE_TTL_S:
+            return None
+
+    value: Optional[float] = None
 
     try:
         query = (
@@ -62,24 +88,24 @@ def _fetch_chlorophyll(latitude: float, longitude: float) -> Optional[float]:
             f"[({longitude}):({longitude})]"
         )
 
-        response = requests.get(f"{CHLOROPHYLL_API_URL}?{query}", timeout=3)
-
+        response = requests.get(
+            f"{CHLOROPHYLL_API_URL}?{query}",
+            timeout=(1.5, 2.0),
+        )
         response.raise_for_status()
-        payload = response.json()
 
-        rows = payload.get("table", {}).get("rows", [])
+        rows = response.json().get("table", {}).get("rows", [])
 
-        if not rows:
-            return None
-
-        # Row shape: [time, latitude, longitude, chlorophyll]
-        value = rows[0][-1]
-
-        return round(float(value), 3) if value is not None else None
+        if rows:
+            # Row shape: [time, latitude, longitude, chlorophyll]
+            raw = rows[0][-1]
+            value = round(float(raw), 3) if raw is not None else None
 
     except Exception:
-        return None
+        value = None
 
+    cache_store("chlorophyll", latitude, longitude, value)
+    return value
 
 def _build_grid(latitude: float, longitude: float) -> List[Dict]:
     """

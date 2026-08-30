@@ -545,7 +545,7 @@ export default function Home() {
     {
       id: "init-1",
       role: "orca",
-      text: "⚡ ORCA Agentic Marine Intelligence Platform Initialized.\n\nConnected to ISRO Earth Observation, INCOIS Synoptic PFZ Feeds, Copernicus CMEMS L4 Wind Scatterometer, and Open-Meteo Marine models.\n\nAsk any question about fishing zones, sea safety, swell dynamics, or maritime boundaries in English or Indian regional languages.",
+      text: "⚡ ORCA Agentic Marine Intelligence Platform Initialized.\n\nLive marine and weather data from Open-Meteo Marine and NOAA CoastWatch, with a cached Copernicus CMEMS L4 wind field. Fishing-zone estimates follow the INCOIS PFZ methodology.\n\nAsk any question about fishing zones, sea safety, swell dynamics, or maritime boundaries in English or Indian regional languages.",
       time: "SYSTEM READY",
       confidence: 98.4,
       whyExplanation: [
@@ -553,8 +553,8 @@ export default function Home() {
         "Operational boundaries and IMBL buffer coordinates loaded for Indian EEZ.",
       ],
       citations: [
-        { source: "INCOIS Marine Fishery Advisory Services", agency: "MoES, Govt. of India" },
-        { source: "ISRO Oceansat-3 OCM", agency: "Indian Space Research Organisation" },
+        { source: "PFZ heuristic, INCOIS methodology", agency: "SST front + chlorophyll, computed locally" },
+        { source: "Open-Meteo Marine forecast", agency: "SST, wave height, sea state" },
         { source: "Copernicus Marine Service (CMEMS)", agency: "EUMETSAT / Mercator Ocean" },
       ],
     },
@@ -1240,7 +1240,7 @@ export default function Home() {
                   ONLINE
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 truncate">Oceansat-3 + CMEMS + INCOIS</p>
+              <p className="text-[10px] text-slate-400 truncate">Open-Meteo + NOAA + CMEMS</p>
             </div>
           )}
 
@@ -1298,7 +1298,7 @@ export default function Home() {
                   </h2>
                   <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/25 text-[10px] font-mono font-semibold tracking-wide shadow-[0_0_16px_rgba(14,165,233,0.12)]">
                     <Radio className="h-3 w-3 animate-pulse text-sky-400" />
-                    ISRO • INCOIS • CMEMS
+                    OPEN-METEO • NOAA • CMEMS
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 font-mono tracking-wide">
@@ -1464,7 +1464,7 @@ export default function Home() {
               unavailable={!isMarinePosition}
               unit=" °C"
               decimals={1}
-              subtitle="Open-Meteo & ISRO Earth Observation"
+              subtitle="Open-Meteo Marine forecast"
               icon={<Waves className="h-5 w-5 text-sky-400" />}
               badge={t("favourable")}
               badgeColor="text-sky-400 bg-sky-500/10 border-sky-500/20"
@@ -1684,7 +1684,7 @@ export default function Home() {
                       {loading && <span className="text-[10px] text-sky-400 font-normal">{t("analyzing")}</span>}
                     </h3>
                     <p className="text-[10px] font-mono text-slate-400">
-                      Explainable Multi-Agent Synthesis (ISRO/INCOIS)
+                      Explainable Multi-Agent Synthesis
                     </p>
                   </div>
                 </div>
@@ -1725,7 +1725,7 @@ export default function Home() {
                         {!isUser && index === chatHistory.length - 1 && (
                           <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
                             <span className="font-mono text-[10px] text-sky-400">
-                              Verified against INCOIS & Copernicus Models
+                              Cross-checked across marine, weather and geofence agents
                             </span>
                             <div className="flex items-center gap-1">
                               <button
@@ -2385,11 +2385,11 @@ export default function Home() {
                 <div className="space-y-2 pt-1">
                   {[
                     {
-                      name: "INCOIS Marine Fishery Advisory Services",
+                      name: "PFZ heuristic, INCOIS methodology",
                       desc: "Potential Fishing Zone (PFZ) synoptic ocean product",
                     },
                     {
-                      name: "ISRO Oceansat-3 OCM",
+                      name: "Open-Meteo Marine forecast",
                       desc: "Chlorophyll-a & ocean colour bio-productivity data",
                     },
                     {

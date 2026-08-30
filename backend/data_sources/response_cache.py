@@ -51,14 +51,34 @@ def store(name: str, latitude: float, longitude: float, payload: Any, extra: str
         pass
 
 
-def load(name: str, latitude: float, longitude: float, extra: str = "") -> Optional[Dict]:
-    """Return {'cached_at', 'payload'} for a previous success, or None."""
+def load(
+    name: str,
+    latitude: float,
+    longitude: float,
+    extra: str = "",
+    max_age_s: Optional[float] = None,
+) -> Optional[Dict]:
+    """
+    Return {'cached_at', 'payload'} for a previous call, or None.
+
+    `max_age_s` treats an older entry as absent. Used for negative caching,
+    where remembering a failure forever would mean never noticing that the
+    upstream recovered.
+    """
 
     try:
         path = _key_path(name, latitude, longitude, extra)
         if not path.exists():
             return None
-        return json.loads(path.read_text(encoding="utf-8"))
+
+        entry = json.loads(path.read_text(encoding="utf-8"))
+
+        if max_age_s is not None:
+            age = time.time() - float(entry.get("cached_at", 0))
+            if age > max_age_s:
+                return None
+
+        return entry
     except Exception:
         return None
 
