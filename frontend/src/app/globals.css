@@ -683,10 +683,12 @@ button:not(:disabled) {
 
 /* Base-map switcher, bottom-left like a general-purpose map's layers card.
    Sits above the telemetry HUD stack, which starts at bottom:12px. */
+/* Under the zoom buttons, top-left. It previously sat bottom-left, where
+   the telemetry HUD is anchored, and the two overlapped. */
 .orca-basemap {
   position: absolute;
   left: 12px;
-  bottom: 108px;
+  top: 84px;
   z-index: 1000;
 }
 
@@ -713,7 +715,7 @@ button:not(:disabled) {
 
 .orca-basemap-menu {
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
   left: 0;
   min-width: 150px;
   padding: 4px;

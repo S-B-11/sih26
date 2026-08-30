@@ -454,7 +454,13 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<
     "Dashboard" | "Analysis" | "Marine Map" | "PFZ Fishery" | "Weather & Swell" | "Safety & Geofence" | "Agent Pipeline"
   >("Dashboard");
+  // Open on desktop, closed on phones — where it would otherwise cover the
+  // whole screen on first paint.
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+  }, []);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [activeMapLayer, setActiveMapLayer] = useState<"bathymetry" | "thermal" | "wind" | "pfz" | "geofence">("pfz");
   const [soundEnabled, setSoundEnabled] = useState(false);
@@ -1171,12 +1177,26 @@ export default function Home() {
       <div className="fixed inset-0 marine-grid opacity-40 pointer-events-none z-0" />
       <div className="fixed inset-0 ocean-atmosphere pointer-events-none z-0" />
 
+      {/* Tap-outside backdrop for the mobile drawer. Desktop keeps the
+          sidebar docked, so it never appears there. */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm md:hidden"
+          aria-hidden="true"
+        />
+      )}
+
       {/* =====================================================
           EXECUTIVE SIDEBAR NAVIGATION
       ====================================================== */}
       <aside
-        className={`fixed left-0 top-0 z-50 h-screen border-r border-slate-800 bg-[#09111e]/98 backdrop-blur-xl transition-all duration-300 flex flex-col justify-between ${
-          sidebarOpen ? "w-64" : "w-20"
+        className={`fixed left-0 top-0 z-50 h-screen w-64 border-r border-slate-800 bg-[#09111e]/98 backdrop-blur-xl transition-transform duration-300 flex flex-col justify-between md:transition-all ${
+          sidebarOpen
+            ? "translate-x-0 md:w-64"
+            : // Off-canvas on phones, where a 5rem rail would still eat a
+              // seventh of the screen; a narrow icon rail on desktop.
+              "-translate-x-full md:translate-x-0 md:w-20"
         }`}
       >
         <div>
@@ -1261,8 +1281,8 @@ export default function Home() {
           MAIN WORKSPACE
       ====================================================== */}
       <section
-        className={`min-h-screen relative z-10 transition-all duration-300 flex flex-col ${
-          sidebarOpen ? "ml-64" : "ml-20"
+        className={`min-h-screen relative z-10 transition-all duration-300 flex flex-col ml-0 ${
+          sidebarOpen ? "md:ml-64" : "md:ml-20"
         }`}
       >
         {/* =====================================================
@@ -1285,7 +1305,7 @@ export default function Home() {
           <div className="header-bar flex h-18 items-center justify-between px-6">
             <div className="header-3d" aria-hidden="true"><div className="header-3d-grid" /></div>
 
-            <div className="relative z-10 flex items-center gap-4">
+            <div className="relative z-10 flex min-w-0 items-center gap-3 sm:gap-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="rounded-lg border border-slate-800 bg-slate-900 p-2 text-slate-400 hover:text-slate-200 hover:border-slate-700 hover:scale-105 transition"
@@ -1295,7 +1315,7 @@ export default function Home() {
 
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h2 className="header-title-gradient text-sm font-bold tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-200 bg-clip-text text-transparent">
+                  <h2 className="header-title-gradient truncate text-xs font-bold tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-200 bg-clip-text text-transparent sm:whitespace-normal sm:text-sm">
                     {t("platformTitle")}
                   </h2>
                   <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/25 text-[10px] font-mono font-semibold tracking-wide shadow-[0_0_16px_rgba(14,165,233,0.12)]">
@@ -1303,7 +1323,9 @@ export default function Home() {
                     OPEN-METEO • NOAA • CMEMS
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 font-mono tracking-wide">
+                {/* Hidden on phones: the header is a fixed height and the
+                    strapline was being clipped mid-sentence. */}
+                <p className="hidden text-[11px] text-slate-400 font-mono tracking-wide sm:block">
                   {t("platformSubtitle")}
                 </p>
               </div>
@@ -1514,26 +1536,6 @@ export default function Home() {
               unavailable={!isMarinePosition}
               highlight
             />
-          </div>
-
-          {/* The problem statement's own example questions, all of them, one
-              click each. They were three of six inside a cramped scroller at
-              the foot of the chat; judges recognise these, so they belong
-              where they can be seen and tried. */}
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800 bg-[#0b1322] px-4 py-3">
-            <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
-              Try
-            </span>
-            {samplePrompts(selectedLanguage).map((question) => (
-              <button
-                key={question}
-                onClick={() => askORCA(question)}
-                disabled={loading}
-                className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-left text-[11px] text-slate-300 transition hover:border-sky-500/40 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {question}
-              </button>
-            ))}
           </div>
 
           {/* =====================================================
