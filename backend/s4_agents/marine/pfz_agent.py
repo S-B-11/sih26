@@ -2,6 +2,8 @@ from typing import Dict, List, Optional, Union
 import math
 import requests
 
+from data_sources.response_cache import fetch_with_fallback
+
 from s4_agents.marine.marine_agent import (
     MARINE_API_URL,
     _normalize_time,
@@ -158,9 +160,17 @@ def find_potential_fishing_zone(
     }
 
     try:
-        response = requests.get(MARINE_API_URL, params=params, timeout=10)
-        response.raise_for_status()
-        api_data = response.json()
+        # The PFZ grid search is the slowest call in the pipeline (~10s
+        # live). Cache it so a slow venue network serves the last good
+        # grid instead of an empty fishing-zone panel.
+        def _live():
+            response = requests.get(MARINE_API_URL, params=params, timeout=8)
+            response.raise_for_status()
+            return response.json()
+
+        api_data, _pfz_cached, _pfz_cached_at = fetch_with_fallback(
+            "pfz_grid", latitude, longitude, _live
+        )
 
     except (requests.RequestException, ValueError) as error:
 

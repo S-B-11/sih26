@@ -2,6 +2,8 @@ from typing import Dict, Optional, Union
 from datetime import datetime
 import requests
 
+from data_sources.response_cache import fetch_with_fallback
+
 
 # =========================================================
 # ORCA MARINE INTELLIGENCE AGENT
@@ -365,17 +367,26 @@ def analyze_marine_conditions(
     # API REQUEST
     # =====================================================
 
+    from_cache = False
+    cached_at = None
+
     try:
 
-        response = requests.get(
-            MARINE_API_URL,
-            params=params,
-            timeout=15
+        def _live():
+            response = requests.get(
+                MARINE_API_URL,
+                params=params,
+                # 15s is a long time to stare at a stage. The cache below
+                # makes a shorter timeout safe: give up quickly and serve
+                # the last good reading rather than stalling the demo.
+                timeout=8
+            )
+            response.raise_for_status()
+            return response.json()
+
+        api_data, from_cache, cached_at = fetch_with_fallback(
+            "marine", latitude, longitude, _live
         )
-
-        response.raise_for_status()
-
-        api_data = response.json()
 
     except requests.RequestException as error:
 
@@ -628,6 +639,8 @@ def analyze_marine_conditions(
         "source": {
 
             "provider": "Open-Meteo Marine",
+            "served_from_cache": from_cache,
+            "cached_at": cached_at,
 
             "type": "live_forecast",
 
