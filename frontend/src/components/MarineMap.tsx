@@ -20,9 +20,6 @@ if (typeof window !== "undefined") {
   // guarantee before use.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require("leaflet-velocity");
-  // Same story: leaflet.heat attaches L.heatLayer onto the global L.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require("leaflet.heat");
 }
 
 export type MapZone = {
@@ -900,122 +897,202 @@ function useSstGrid(active: boolean, lat: number, lon: number) {
   return grid;
 }
 
-// Thermal field. What matters in SST is not the number at one point but
-// where warm meets cool — a front — because that is where fish gather.
-// A single disc at the vessel cannot show a front; a field can.
-function SstHeatLayer({
-  grid,
-}: {
-  grid: { points: Array<{ latitude: number; longitude: number; sst: number }>; min: number; max: number };
-}) {
-  const map = useMap();
+// =========================================================
+// SCALAR FIELD LAYER
+//
+// Renders sampled values (SST, productivity) as a continuous surface.
+//
+// This replaced leaflet.heat, which is a *density* plotter: it sums
+// overlapping blobs of a fixed pixel radius. Two things made it wrong
+// here. Its radius is in screen pixels, so the field did not scale with
+// zoom — zooming in left the same-sized blob covering a tenth of the
+// water. And because the blobs spread regardless of where the samples
+// were, the field smeared inland over Nashik and Pune, implying sea
+// temperature readings for places 500 m above sea level.
+//
+// This interpolates instead. Each pixel takes an inverse-distance
+// weighted average of nearby samples, and anything further than the
+// cutoff from any sample stays transparent — so the surface covers
+// exactly the water that was sampled, and follows the coast because the
+// upstream model returns null on land and those points were dropped.
+// =========================================================
 
-  useEffect(() => {
-    if (!grid?.points?.length) return;
+type FieldPoint = { latitude: number; longitude: number; value: number };
 
-    const span = grid.max - grid.min || 1;
+// Sampling step of the grid, in degrees. The influence cutoff is a small
+// multiple of it: wide enough to close the gaps between samples, tight
+// enough that the field stops at the edge of what was measured.
+const FIELD_CUTOFF_DEG = 0.22;
+// Full strength while a grid cell still reads as an area of sea; gone by
+// the point one cell fills the screen.
+const FIELD_FULL_ZOOM = 9;
+const FIELD_HIDE_ZOOM = 12;
+const FIELD_RESOLUTION = 4; // px per computed cell
 
-    // Normalised across the observed range, not an absolute scale: the sea
-    // here varies by a degree or two, and an absolute 0-40 ramp would paint
-    // the whole area one flat colour and hide exactly the gradient that
-    // makes the layer worth drawing.
-    const points = grid.points.map((p) => [
-      p.latitude,
-      p.longitude,
-      0.2 + 0.8 * ((p.sst - grid.min) / span),
-    ]);
+function colourRamp(t: number): [number, number, number] {
+  // Perceptually ordered cool -> warm. Interpolated in RGB, which is fine
+  // over these short hops between adjacent stops.
+  const stops: Array<[number, [number, number, number]]> = [
+    [0.0, [37, 99, 235]],
+    [0.25, [8, 145, 178]],
+    [0.5, [16, 185, 129]],
+    [0.7, [234, 179, 8]],
+    [0.85, [249, 115, 22]],
+    [1.0, [220, 38, 38]],
+  ];
 
-    // @ts-expect-error - leaflet.heat extends the global L at runtime.
-    const layer = L.heatLayer(points, {
-      radius: 46,
-      blur: 36,
-      maxZoom: 11,
-      minOpacity: 0.4,
-      // Cool to warm, so the ramp reads as temperature without a legend.
-      gradient: {
-        0.0: "#1d4ed8",
-        0.35: "#0891b2",
-        0.55: "#14b8a6",
-        0.75: "#f59e0b",
-        1.0: "#dc2626",
-      },
-    });
+  const clamped = Math.max(0, Math.min(1, t));
 
-    layer.addTo(map);
+  for (let i = 1; i < stops.length; i += 1) {
+    const [pos, colour] = stops[i];
+    if (clamped <= pos) {
+      const [prevPos, prevColour] = stops[i - 1];
+      const f = (clamped - prevPos) / (pos - prevPos || 1);
+      return [
+        Math.round(prevColour[0] + f * (colour[0] - prevColour[0])),
+        Math.round(prevColour[1] + f * (colour[1] - prevColour[1])),
+        Math.round(prevColour[2] + f * (colour[2] - prevColour[2])),
+      ];
+    }
+  }
 
-    return () => {
-      try {
-        // @ts-expect-error - internal liveness flag.
-        if (map._loaded) map.removeLayer(layer);
-      } catch {
-        // Already torn down.
-      }
-    };
-  }, [grid, map]);
-
-  return null;
+  return stops[stops.length - 1][1];
 }
 
-// Productivity rendered as a continuous heat field rather than one circle
-// per sampled grid point. The dots showed exactly where the model happened
-// to sample, which reads as false precision — a fisherman is not being told
-// "fish are in this 4.5km disc", they are being told this stretch of water
-// looks better than that one. A blended field says that honestly.
-function PfzHeatLayer({
-  candidates,
+function ScalarFieldLayer({
+  points,
+  min,
+  max,
+  opacity = 0.8,
 }: {
-  candidates: Array<{ latitude: number; longitude: number; score: number }>;
+  points: FieldPoint[];
+  min: number;
+  max: number;
+  opacity?: number;
 }) {
   const map = useMap();
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    if (!candidates || candidates.length === 0) return;
+    if (!points.length) return;
 
-    const scores = candidates.map((c) => c.score);
-    const min = Math.min(...scores);
-    const max = Math.max(...scores);
+    const canvas = L.DomUtil.create("canvas", "orca-field-layer") as HTMLCanvasElement;
+    canvas.style.position = "absolute";
+    canvas.style.pointerEvents = "none";
+    canvas.style.opacity = String(opacity);
+    map.getPanes().overlayPane.appendChild(canvas);
+    canvasRef.current = canvas;
+
     const span = max - min || 1;
 
-    // Normalise to 0-1 across the actual spread, so a field where every
-    // point scores 55-65 still shows its structure instead of rendering
-    // uniformly warm.
-    const points = candidates.map((c) => [
-      c.latitude,
-      c.longitude,
-      0.25 + 0.75 * ((c.score - min) / span),
-    ]);
+    const draw = () => {
+      const size = map.getSize();
 
-    // @ts-expect-error - leaflet.heat has no type declarations; it extends
-    // the global L namespace at runtime (see the require() at top of file).
-    const layer = L.heatLayer(points, {
-      // Tuned against the dark basemap: the default radius/opacity render
-      // as a barely-visible smudge on it.
-      radius: 55,
-      blur: 40,
-      maxZoom: 11,
-      minOpacity: 0.45,
-      gradient: {
-        0.0: "#0e7490",
-        0.3: "#0891b2",
-        0.5: "#22c55e",
-        0.7: "#eab308",
-        0.85: "#f97316",
-        1.0: "#ef4444",
-      },
-    });
+      // The upstream model samples every ~22 km. Past the zoom where a cell
+      // is still a meaningful patch of sea, painting it implies detail that
+      // does not exist — and at street zoom the whole viewport sits inside
+      // one cell, so the field floods the city in a single flat colour.
+      // Fade it out rather than draw a lie.
+      const zoom = map.getZoom();
+      const zoomFade =
+        zoom <= FIELD_FULL_ZOOM
+          ? 1
+          : Math.max(0, 1 - (zoom - FIELD_FULL_ZOOM) / (FIELD_HIDE_ZOOM - FIELD_FULL_ZOOM));
 
-    layer.addTo(map);
+      canvas.style.opacity = String(opacity * zoomFade);
+
+      if (zoomFade <= 0) {
+        canvas.width = size.x;
+        canvas.height = size.y;
+        return;
+      }
+
+      canvas.width = size.x;
+      canvas.height = size.y;
+
+      // The overlay pane is translated as the map moves; pin the canvas
+      // back to the current top-left so pixel (0,0) is the visible corner.
+      L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]));
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, size.x, size.y);
+
+      // Only samples inside the padded viewport can affect visible pixels.
+      const bounds = map.getBounds().pad(0.5);
+      const visible = points.filter((p) =>
+        bounds.contains(L.latLng(p.latitude, p.longitude)),
+      );
+      if (!visible.length) return;
+
+      const image = ctx.createImageData(size.x, size.y);
+      const data = image.data;
+      const cutoffSq = FIELD_CUTOFF_DEG * FIELD_CUTOFF_DEG;
+
+      for (let py = 0; py < size.y; py += FIELD_RESOLUTION) {
+        for (let px = 0; px < size.x; px += FIELD_RESOLUTION) {
+          const ll = map.containerPointToLatLng([px, py]);
+
+          let weighted = 0;
+          let weights = 0;
+          let nearest = Infinity;
+
+          for (const p of visible) {
+            const dLat = ll.lat - p.latitude;
+            const dLon = (ll.lng - p.longitude) * Math.cos((ll.lat * Math.PI) / 180);
+            const dSq = dLat * dLat + dLon * dLon;
+
+            if (dSq > cutoffSq) continue;
+            if (dSq < nearest) nearest = dSq;
+
+            // Inverse distance squared, floored so a pixel sitting exactly
+            // on a sample does not divide by zero.
+            const w = 1 / Math.max(dSq, 1e-6);
+            weighted += p.value * w;
+            weights += w;
+          }
+
+          if (!weights) continue;
+
+          const value = weighted / weights;
+          const [r, g, b] = colourRamp((value - min) / span);
+
+          // Fade towards the cutoff so the surface ends softly rather than
+          // with a hard circular edge. Squared, so it stays solid over the
+          // sampled water and falls away quickly past the last sample
+          // instead of washing tens of kilometres inland.
+          const edge = 1 - Math.sqrt(nearest) / FIELD_CUTOFF_DEG;
+          const eased = Math.max(0, Math.min(1, edge)) ** 2;
+          const alpha = Math.round(255 * eased);
+
+          for (let dy = 0; dy < FIELD_RESOLUTION && py + dy < size.y; dy += 1) {
+            for (let dx = 0; dx < FIELD_RESOLUTION && px + dx < size.x; dx += 1) {
+              const idx = ((py + dy) * size.x + (px + dx)) * 4;
+              data[idx] = r;
+              data[idx + 1] = g;
+              data[idx + 2] = b;
+              data[idx + 3] = alpha;
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(image, 0, 0);
+    };
+
+    draw();
+    map.on("moveend zoomend resize", draw);
 
     return () => {
+      map.off("moveend zoomend resize", draw);
       try {
-        // @ts-expect-error - Leaflet's internal "still alive" flag is not
-        // part of its public types.
-        if (map._loaded) map.removeLayer(layer);
+        canvas.remove();
       } catch {
-        // Map already torn down.
+        // Pane already gone.
       }
+      canvasRef.current = null;
     };
-  }, [candidates, map]);
+  }, [points, min, max, opacity, map]);
 
   return null;
 }
@@ -1162,7 +1239,17 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
       </Marker>
 
       {/* Grid field when the area sampled successfully. */}
-      {activeLayer === "thermal" && sstGrid && <SstHeatLayer grid={sstGrid} />}
+      {activeLayer === "thermal" && sstGrid && (
+        <ScalarFieldLayer
+          points={sstGrid.points.map((p) => ({
+            latitude: p.latitude,
+            longitude: p.longitude,
+            value: p.sst,
+          }))}
+          min={sstGrid.min}
+          max={sstGrid.max}
+        />
+      )}
 
       {/* Fallback: the single-point rings, used only when the grid could not
           be fetched, so the layer still shows the reading it does have
@@ -1195,7 +1282,16 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
               is where the model happened to sample, not where the fish are,
               and drawing discs implied a precision the estimate does not
               have. */}
-          <PfzHeatLayer candidates={pfzLayer.candidates} />
+          <ScalarFieldLayer
+            points={pfzLayer.candidates.map((c) => ({
+              latitude: c.latitude,
+              longitude: c.longitude,
+              value: c.score,
+            }))}
+            min={Math.min(...pfzLayer.candidates.map((c) => c.score))}
+            max={Math.max(...pfzLayer.candidates.map((c) => c.score))}
+            opacity={0.62}
+          />
 
           <Circle
             center={[pfzLayer.nearestZone.latitude, pfzLayer.nearestZone.longitude]}

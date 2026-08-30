@@ -22,9 +22,10 @@ from data_sources.response_cache import fetch_with_fallback
 
 MARINE_API_URL = "https://marine-api.open-meteo.com/v1/marine"
 
-# 0.25 degrees is roughly 27 km. Finer than this and the upstream grid
-# returns the same value repeatedly — the model itself is not sharper.
-GRID_STEP_DEG = 0.25
+# ~22 km. Finer than this and the upstream model returns the same value
+# repeatedly — it is not sharper than its own cell size — while the request
+# grows quadratically.
+GRID_STEP_DEG = 0.2
 
 
 def _build_grid(
@@ -47,7 +48,7 @@ def _build_grid(
 def fetch_sst_grid(
     latitude: float = 19.05,
     longitude: float = 72.80,
-    span_deg: float = 2.5,
+    span_deg: float = 3.4,
 ) -> Dict:
     """
     Returns {"success", "points": [{latitude, longitude, sst}], "min", "max"}.

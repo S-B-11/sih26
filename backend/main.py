@@ -265,7 +265,7 @@ def zones_data():
 def sst_grid_data(
     latitude: float = 19.05,
     longitude: float = 72.80,
-    span_deg: float = 2.5
+    span_deg: float = 3.4
 ):
     """Sea surface temperature over a grid, for the thermal map layer."""
 
