@@ -1,3 +1,4 @@
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional
 
@@ -484,9 +485,13 @@ def orca_query(request: QueryRequest):
         # STEP 2 - PLANNER
         # =================================================
 
+        _planner_started = time.perf_counter()
+
         plan = plan_query(
             user_query
         )
+
+        planner_ms = (time.perf_counter() - _planner_started) * 1000
 
 
         # =================================================
@@ -608,25 +613,54 @@ def orca_query(request: QueryRequest):
         # This is also the "parallel execution" the workflow diagram shows.
         wants_pfz = "pfz_agent" in plan.get("agents_required", [])
 
+        # Timed record of what actually ran, so the console can show the
+        # collaboration rather than assert it. Populated as agents finish.
+        agent_trace = [{
+            "agent_name": "planner",
+            "status": "done",
+            "duration_ms": round(planner_ms, 1),
+            "detail": f"{len(plan.get('agents_required', []))} specialists selected",
+        }]
+
+        def _timed(name, fn, *args):
+            started = time.perf_counter()
+            result = fn(*args)
+            return name, result, (time.perf_counter() - started) * 1000
+
         with ThreadPoolExecutor(max_workers=3) as pool:
 
             marine_future = pool.submit(
-                analyze_marine_conditions, latitude, longitude, time_context
+                _timed, "marine", analyze_marine_conditions, latitude, longitude, time_context
             )
             weather_future = pool.submit(
-                weather_agent, latitude, longitude, time_context
+                _timed, "weather", weather_agent, latitude, longitude, time_context
             )
             pfz_future = (
                 pool.submit(
-                    find_potential_fishing_zone, latitude, longitude, time_context
+                    _timed, "pfz", find_potential_fishing_zone, latitude, longitude, time_context
                 )
                 if wants_pfz
                 else None
             )
 
-            marine = marine_future.result()
-            weather = weather_future.result()
-            pfz = pfz_future.result() if pfz_future else None
+            _, marine, marine_ms = marine_future.result()
+            _, weather, weather_ms = weather_future.result()
+
+            if pfz_future:
+                _, pfz, pfz_ms = pfz_future.result()
+            else:
+                pfz, pfz_ms = None, None
+
+        agent_trace.append({"agent_name": "marine", "status": "done",
+                            "duration_ms": round(marine_ms, 1),
+                            "detail": "SST, wave height, sea state"})
+        agent_trace.append({"agent_name": "weather", "status": "done",
+                            "duration_ms": round(weather_ms, 1),
+                            "detail": "Wind, forecast, hazards"})
+        if pfz_ms is not None:
+            agent_trace.append({"agent_name": "pfz", "status": "done",
+                                "duration_ms": round(pfz_ms, 1),
+                                "detail": "Fishing zone search"})
 
 
         # =================================================
@@ -649,6 +683,8 @@ def orca_query(request: QueryRequest):
         # STEP 8 - GEO AGENT
         # =================================================
 
+        _geo_started = time.perf_counter()
+
         geo = analyze_location(
 
             latitude,
@@ -658,10 +694,18 @@ def orca_query(request: QueryRequest):
             is_marine=_marine_data_available(marine)
         )
 
+        agent_trace.append({
+            "agent_name": "geospatial", "status": "done",
+            "duration_ms": round((time.perf_counter() - _geo_started) * 1000, 1),
+            "detail": geo.get("status", "Boundary check"),
+        })
+
 
         # =================================================
         # STEP 9 - RISK AGENT
         # =================================================
+
+        _risk_started = time.perf_counter()
 
         risk = calculate_risk(
 
@@ -671,6 +715,12 @@ def orca_query(request: QueryRequest):
 
             geo
         )
+
+        agent_trace.append({
+            "agent_name": "risk", "status": "done",
+            "duration_ms": round((time.perf_counter() - _risk_started) * 1000, 1),
+            "detail": f"Risk {risk.get('risk_level')}",
+        })
 
 
         # =================================================
@@ -717,6 +767,8 @@ def orca_query(request: QueryRequest):
         # STEP 10 - SYNTHESIS AGENT
         # =================================================
 
+        _synth_started = time.perf_counter()
+
         final_response = synthesize_response(
 
             user_query,
@@ -732,6 +784,12 @@ def orca_query(request: QueryRequest):
             pfz,
             route
         )
+
+        agent_trace.append({
+            "agent_name": "synthesis", "status": "done",
+            "duration_ms": round((time.perf_counter() - _synth_started) * 1000, 1),
+            "detail": "Evidence-cited answer composed",
+        })
 
 
         # =================================================
@@ -787,7 +845,12 @@ def orca_query(request: QueryRequest):
             # Final Response
             # -------------------------------------------------
 
-            "response": final_response
+            "response": final_response,
+
+            # Timed record of the specialists that actually ran for
+            # this query — the multi-agent collaboration the problem
+            # statement asks to see demonstrated.
+            "agent_trace": agent_trace
         }
 
 
