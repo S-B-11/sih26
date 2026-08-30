@@ -18,6 +18,7 @@ from s8_knowledge.glossary import (
 )
 from s4_agents.geospatial.location_agent import resolve_location
 from s4_agents.marine.pfz_agent import find_potential_fishing_zone
+from s4_agents.marine.sst_grid_agent import fetch_sst_grid
 from s4_agents.geospatial.route_agent import plan_safe_route
 from s4_agents.weather.wind_grid_agent import fetch_wind_grid
 
@@ -259,6 +260,26 @@ def zones_data():
 # =========================================================
 # WIND GRID ENDPOINT (animated flow-field map layer)
 # =========================================================
+
+@app.get("/api/sst-grid")
+def sst_grid_data(
+    latitude: float = 19.05,
+    longitude: float = 72.80,
+    span_deg: float = 2.5
+):
+    """Sea surface temperature over a grid, for the thermal map layer."""
+
+    try:
+
+        return fetch_sst_grid(latitude, longitude, span_deg)
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"SST grid agent error: {str(e)}"
+        )
+
 
 @app.get("/api/wind-grid")
 def wind_grid_data(

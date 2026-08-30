@@ -865,6 +865,97 @@ function usePfzLayer(
   return fromChat ?? fetched;
 }
 
+// Sea surface temperature over an area, for the thermal layer.
+function useSstGrid(active: boolean, lat: number, lon: number) {
+  const [grid, setGrid] = useState<{
+    points: Array<{ latitude: number; longitude: number; sst: number }>;
+    min: number;
+    max: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    fetch(`${API_BASE}/api/sst-grid?latitude=${lat}&longitude=${lon}`, {
+      signal: controller.signal,
+    })
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled || !body?.success || !body.points?.length) return;
+        setGrid({ points: body.points, min: body.min, max: body.max });
+      })
+      .catch(() => {
+        // Falls back to the single-point ring below.
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [active, lat, lon]);
+
+  return grid;
+}
+
+// Thermal field. What matters in SST is not the number at one point but
+// where warm meets cool — a front — because that is where fish gather.
+// A single disc at the vessel cannot show a front; a field can.
+function SstHeatLayer({
+  grid,
+}: {
+  grid: { points: Array<{ latitude: number; longitude: number; sst: number }>; min: number; max: number };
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!grid?.points?.length) return;
+
+    const span = grid.max - grid.min || 1;
+
+    // Normalised across the observed range, not an absolute scale: the sea
+    // here varies by a degree or two, and an absolute 0-40 ramp would paint
+    // the whole area one flat colour and hide exactly the gradient that
+    // makes the layer worth drawing.
+    const points = grid.points.map((p) => [
+      p.latitude,
+      p.longitude,
+      0.2 + 0.8 * ((p.sst - grid.min) / span),
+    ]);
+
+    // @ts-expect-error - leaflet.heat extends the global L at runtime.
+    const layer = L.heatLayer(points, {
+      radius: 46,
+      blur: 36,
+      maxZoom: 11,
+      minOpacity: 0.4,
+      // Cool to warm, so the ramp reads as temperature without a legend.
+      gradient: {
+        0.0: "#1d4ed8",
+        0.35: "#0891b2",
+        0.55: "#14b8a6",
+        0.75: "#f59e0b",
+        1.0: "#dc2626",
+      },
+    });
+
+    layer.addTo(map);
+
+    return () => {
+      try {
+        // @ts-expect-error - internal liveness flag.
+        if (map._loaded) map.removeLayer(layer);
+      } catch {
+        // Already torn down.
+      }
+    };
+  }, [grid, map]);
+
+  return null;
+}
+
 // Productivity rendered as a continuous heat field rather than one circle
 // per sampled grid point. The dots showed exactly where the model happened
 // to sample, which reads as false precision — a fisherman is not being told
@@ -950,6 +1041,7 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
 
   const windGrid = useWindGrid(activeLayer === "wind", center.lat, center.lon);
   const pfzLayer = usePfzLayer(activeLayer === "pfz", center.lat, center.lon, pfz);
+  const sstGrid = useSstGrid(activeLayer === "thermal", center.lat, center.lon);
 
   const isBathymetry = activeLayer === "bathymetry";
 
@@ -1069,11 +1161,14 @@ export default function MarineMap({ center, activeLayer, marine, pfz, geo, route
         <Popup>{center.name}</Popup>
       </Marker>
 
-      {activeLayer === "thermal" && marine?.sst != null && (
+      {/* Grid field when the area sampled successfully. */}
+      {activeLayer === "thermal" && sstGrid && <SstHeatLayer grid={sstGrid} />}
+
+      {/* Fallback: the single-point rings, used only when the grid could not
+          be fetched, so the layer still shows the reading it does have
+          rather than going blank. */}
+      {activeLayer === "thermal" && !sstGrid && marine?.sst != null && (
         <>
-          {/* Three fading rings instead of one flat circle, so the layer
-              reads as a thermal gradient radiating from the reading point
-              rather than a single hard-edged disc. */}
           {[1, 0.66, 0.35].map((scale, index) => (
             <Circle
               key={index}
